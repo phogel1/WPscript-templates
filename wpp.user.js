@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1118
+// @version      7.3.20260416.1122
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6038,6 +6038,9 @@ ${this.buildTimelineHtml(group.key)}`;
             editorBindKeyboard(iDoc);
             // editorInitTooltip disabled — replaced by diagram tooltip (initDiagramTooltip)
             // which shows the same label + all related live tag values in one tooltip.
+            // Call here because the init polling loop is already cleared by the time
+            // the iframe content is ready.
+            initDiagramTooltip();
             iframe.contentWindow.focus();
 
             editorUpdateToolbarContext();
