@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1113
+// @version      7.3.20260416.1114
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -161,7 +161,7 @@
         pill.id = 'inu-wp-pill';
         pill.innerHTML = INU_LOGO_SVG + '<span style="margin-left:5px;">WebPort+</span>';
         pill.style.cssText = 'padding:3px 10px;border-radius:3px;font-size:10px;font-weight:600;color:#fff;background:#1b5e20;user-select:none;cursor:default;align-self:center;display:inline-flex;align-items:center;';
-        pill.title = 'INU WebPort-Plus v' + CFG.version + ' aktiv';
+        pill.title = 'v' + CFG.version;
         const nav = topMenu.parentElement;
         if (nav) nav.insertBefore(pill, nav.firstChild);
     }
