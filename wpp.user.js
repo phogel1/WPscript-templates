@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1122
+// @version      7.3.20260416.1125
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6311,26 +6311,24 @@ ${this.buildTimelineHtml(group.key)}`;
         let tooltip = null;
         let currentPoid = null;
 
-        // Address cache: tag name → address. Fetched once per tag via /tag/read.
-        const addrCache = {};
-        function fetchAddresses(tagNames) {
-            const missing = tagNames.filter(t => !(t in addrCache));
-            if (!missing.length) return;
-            // Mark as pending so we don't re-fetch
-            for (const t of missing) addrCache[t] = '';
-            // Fetch tag info to get addresses (use ActionEdit which returns the form with address field)
-            for (const tagName of missing) {
-                const xhr = new XMLHttpRequest();
-                xhr.open('GET', '/tag/ActionEdit?show=1&type=tag&tag=' + encodeURIComponent(tagName.replace(/_/g, '-5F-')), true);
-                xhr.onload = function () {
-                    if (xhr.status === 200) {
-                        const doc = new DOMParser().parseFromString(xhr.responseText, 'text/html');
-                        const addrField = doc.querySelector('input[name="address"], select[name="address"]');
-                        if (addrField) addrCache[tagName] = addrField.value || '';
-                    }
-                };
-                xhr.send();
-            }
+        // Prefix cache: poid → real tag prefix (e.g. "03_AS01_KVP001_DHW_LOWER").
+        // Fetched once per component via /Page/PageObjectProperties.
+        const prefixCache = {};
+        function fetchPrefix(poid) {
+            if (poid in prefixCache) return;
+            prefixCache[poid] = null; // mark pending
+            const obj = getObjectForPoid(poid);
+            if (!obj) return;
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', '/Page/PageObjectProperties?pageid=' + encodeURIComponent(pageId) + '&id=' + encodeURIComponent(obj.fullId), true);
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    const doc = new DOMParser().parseFromString(xhr.responseText, 'text/html');
+                    const pfx = doc.querySelector('textarea[name="prefix"], input[name="prefix"]');
+                    if (pfx && pfx.value) prefixCache[poid] = pfx.value;
+                }
+            };
+            xhr.send();
         }
 
         function showTooltip(compEl, poid) {
@@ -6340,15 +6338,16 @@ ${this.buildTimelineHtml(group.key)}`;
             const funcs = getFunctionsForPoid(poid);
             const label = obj ? (obj.text || poid.replace(/-5F-/g, '_')) : poid.replace(/-5F-/g, '_');
 
-            // Kick off address fetches for all tags in this component
-            fetchAddresses(funcs.map(f => f.fullTag));
-
             tooltip = iDoc.createElement('div');
             tooltip.className = 'inu-diagram-tooltip';
 
-            const tagStem = poid.replace(/-5F-/g, '_');
+            // Kick off prefix fetch for this component
+            fetchPrefix(poid);
 
             function renderContent() {
+                const realPrefix = prefixCache[poid];
+                const tagStem = realPrefix || poid.replace(/-5F-/g, '_');
+
                 let html = '<div class="inu-dt-header">' + _tplEsc(label) + '</div>';
                 html += '<div class="inu-dt-stem">' + _tplEsc(tagStem) + '</div>';
                 if (funcs.length === 0) {
@@ -6359,8 +6358,8 @@ ${this.buildTimelineHtml(group.key)}`;
                         const isAlarm = /_(AL\d*|FAULT|HAL|LAL)$/i.test(f.suffix);
                         const isActive = isAlarm && f.value !== '0' && f.value !== '';
                         const rowCls = isActive ? ' class="inu-dt-alarm"' : '';
-                        const addr = addrCache[f.fullTag] || '';
-                        html += '<tr' + rowCls + '><td class="inu-dt-suffix">' + _tplEsc(f.suffix) + '</td><td class="inu-dt-addr">' + _tplEsc(addr) + '</td><td class="inu-dt-value">' + _tplEsc(f.value) + '</td></tr>';
+                        const realTag = realPrefix ? realPrefix + f.suffix : f.fullTag;
+                        html += '<tr' + rowCls + '><td class="inu-dt-suffix">' + _tplEsc(f.suffix) + '</td><td class="inu-dt-tag">' + _tplEsc(realTag) + '</td><td class="inu-dt-value">' + _tplEsc(f.value) + '</td></tr>';
                     }
                     html += '</tbody></table>';
                 }
