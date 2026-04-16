@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1104
+// @version      7.3.20260416.1108
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6232,8 +6232,8 @@ ${this.buildTimelineHtml(group.key)}`;
         if (_diagramTooltipActive) return;
         _diagramTooltipActive = true;
 
-        // Restore preference
-        try { _diagramTooltipEnabled = GM_getValue('inu_diagram_tooltip', true); } catch (e) {}
+        // Restore preference (default OFF)
+        try { _diagramTooltipEnabled = GM_getValue('inu_diagram_tooltip', false); } catch (e) {}
 
         // Toggle button next to brand pill
         const pill = document.getElementById('inu-wp-pill');
@@ -6286,7 +6286,8 @@ ${this.buildTimelineHtml(group.key)}`;
             const prefix = poid + '-5F-';
             return cachedData.functions.filter(f => f.id && f.id.startsWith(prefix)).map(f => {
                 const suffix = f.id.substring(prefix.length).replace(/-5F-/g, '_');
-                return { suffix: '_' + suffix, value: f.value || '' };
+                const fullTag = f.id.replace(/-5F-/g, '_');
+                return { suffix: '_' + suffix, fullTag: fullTag, value: f.value || '' };
             });
         }
 
@@ -6298,6 +6299,28 @@ ${this.buildTimelineHtml(group.key)}`;
         let tooltip = null;
         let currentPoid = null;
 
+        // Address cache: tag name → address. Fetched once per tag via /tag/read.
+        const addrCache = {};
+        function fetchAddresses(tagNames) {
+            const missing = tagNames.filter(t => !(t in addrCache));
+            if (!missing.length) return;
+            // Mark as pending so we don't re-fetch
+            for (const t of missing) addrCache[t] = '';
+            // Fetch tag info to get addresses (use ActionEdit which returns the form with address field)
+            for (const tagName of missing) {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', '/tag/ActionEdit?show=1&type=tag&tag=' + encodeURIComponent(tagName.replace(/_/g, '-5F-')), true);
+                xhr.onload = function () {
+                    if (xhr.status === 200) {
+                        const doc = new DOMParser().parseFromString(xhr.responseText, 'text/html');
+                        const addrField = doc.querySelector('input[name="address"], select[name="address"]');
+                        if (addrField) addrCache[tagName] = addrField.value || '';
+                    }
+                };
+                xhr.send();
+            }
+        }
+
         function showTooltip(compEl, poid) {
             hideTooltip();
             currentPoid = poid;
@@ -6305,23 +6328,32 @@ ${this.buildTimelineHtml(group.key)}`;
             const funcs = getFunctionsForPoid(poid);
             const label = obj ? (obj.text || poid.replace(/-5F-/g, '_')) : poid.replace(/-5F-/g, '_');
 
+            // Kick off address fetches for all tags in this component
+            fetchAddresses(funcs.map(f => f.fullTag));
+
             tooltip = iDoc.createElement('div');
             tooltip.className = 'inu-diagram-tooltip';
 
-            let html = '<div class="inu-dt-header">' + _tplEsc(label) + '</div>';
-            if (funcs.length === 0) {
-                html += '<div class="inu-dt-empty">Inga taggvärden</div>';
-            } else {
-                html += '<table class="inu-dt-table"><tbody>';
-                for (const f of funcs) {
-                    const isAlarm = /_(AL\d*|FAULT|HAL|LAL)$/i.test(f.suffix);
-                    const isActive = isAlarm && f.value !== '0' && f.value !== '';
-                    const rowCls = isActive ? ' class="inu-dt-alarm"' : '';
-                    html += '<tr' + rowCls + '><td class="inu-dt-suffix">' + _tplEsc(f.suffix) + '</td><td class="inu-dt-value">' + _tplEsc(f.value) + '</td></tr>';
+            function renderContent() {
+                let html = '<div class="inu-dt-header">' + _tplEsc(label) + '</div>';
+                if (funcs.length === 0) {
+                    html += '<div class="inu-dt-empty">Inga taggvärden</div>';
+                } else {
+                    html += '<table class="inu-dt-table">';
+                    html += '<thead><tr><th>Tagg</th><th>Adress</th><th>Värde</th></tr></thead><tbody>';
+                    for (const f of funcs) {
+                        const isAlarm = /_(AL\d*|FAULT|HAL|LAL)$/i.test(f.suffix);
+                        const isActive = isAlarm && f.value !== '0' && f.value !== '';
+                        const rowCls = isActive ? ' class="inu-dt-alarm"' : '';
+                        const addr = addrCache[f.fullTag] || '';
+                        html += '<tr' + rowCls + '><td class="inu-dt-tag">' + _tplEsc(f.fullTag) + '</td><td class="inu-dt-addr">' + _tplEsc(addr) + '</td><td class="inu-dt-value">' + _tplEsc(f.value) + '</td></tr>';
+                    }
+                    html += '</tbody></table>';
                 }
-                html += '</tbody></table>';
+                return html;
             }
-            tooltip.innerHTML = html;
+
+            tooltip.innerHTML = renderContent();
             iDoc.body.appendChild(tooltip);
 
             const rect = compEl.getBoundingClientRect();
@@ -6345,16 +6377,19 @@ ${this.buildTimelineHtml(group.key)}`;
         // Inject tooltip CSS into iframe
         const style = iDoc.createElement('style');
         style.textContent = `
-.inu-diagram-tooltip { position:fixed; z-index:99999; background:#1e293b; color:#e2e8f0; border-radius:6px; box-shadow:0 6px 24px rgba(0,0,0,.4); padding:0; min-width:180px; max-width:320px; font-family:system-ui,-apple-system,sans-serif; font-size:12px; pointer-events:none; }
+.inu-diagram-tooltip { position:fixed; z-index:99999; background:#1e293b; color:#e2e8f0; border-radius:6px; box-shadow:0 6px 24px rgba(0,0,0,.4); padding:0; min-width:280px; max-width:520px; font-family:system-ui,-apple-system,sans-serif; font-size:12px; pointer-events:none; }
 .inu-dt-header { padding:8px 12px; font-weight:700; font-size:13px; color:#fff; border-bottom:1px solid #334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .inu-dt-empty { padding:8px 12px; font-size:11px; color:#94a3b8; font-style:italic; }
 .inu-dt-table { width:100%; border-collapse:collapse; }
-.inu-dt-table td { padding:4px 12px; border-bottom:1px solid #334155; }
+.inu-dt-table th { padding:4px 10px; font-size:9px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.5px; text-align:left; border-bottom:1px solid #334155; }
+.inu-dt-table td { padding:3px 10px; border-bottom:1px solid #1e293b; }
 .inu-dt-table tr:last-child td { border-bottom:none; }
-.inu-dt-suffix { font-family:monospace; font-weight:600; color:#94a3b8; font-size:11px; white-space:nowrap; }
+.inu-dt-table tbody tr:hover td { background:rgba(255,255,255,.04); }
+.inu-dt-tag { font-family:monospace; font-size:11px; color:#94a3b8; white-space:nowrap; }
+.inu-dt-addr { font-family:monospace; font-size:11px; color:#64748b; white-space:nowrap; }
 .inu-dt-value { text-align:right; font-family:monospace; font-weight:600; color:#e2e8f0; font-size:12px; white-space:nowrap; }
 .inu-dt-alarm .inu-dt-value { color:#f87171; }
-.inu-dt-alarm .inu-dt-suffix { color:#f87171; }
+.inu-dt-alarm .inu-dt-tag { color:#f87171; }
 `;
         iDoc.head.appendChild(style);
 
