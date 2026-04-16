@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1058
+// @version      7.3.20260416.1104
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6391,7 +6391,10 @@ ${this.buildTimelineHtml(group.key)}`;
             // Bail if not a WebPort page
             if (att > 5 && !isWebPort()) { clearInterval(wait); return; }
             // Brand pill, source check, and log panel on any WebPort page (once)
-            if (isWebPort() && document.getElementById('top-menu') && !document.getElementById('inu-wp-pill')) { injectBrandPill(); checkSources(); hookToastr(); initLogPanel(); initDiagramTooltip(); }
+            if (isWebPort() && document.getElementById('top-menu') && !document.getElementById('inu-wp-pill')) { injectBrandPill(); checkSources(); hookToastr(); initLogPanel(); }
+            // Diagram tooltip: retry each tick until the iframe's wpp container exists.
+            // Safe to call repeatedly — returns immediately if already active.
+            if (isWebPort()) initDiagramTooltip();
             if(isInuTagPage()){
                 clearInterval(wait);
                 console.log(CFG.logPrefix, 'v' + CFG.version, 'Activating');
