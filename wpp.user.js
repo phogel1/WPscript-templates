@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1315
+// @version      7.3.20260416.1319
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6480,23 +6480,25 @@ ${this.buildTimelineHtml(group.key)}`;
     // INIT
     // ============================================================
     function init() {
+        // View-mode diagram pages: skip the polling loop entirely.
+        // ANY DOM access during WebPort's rendering cycle breaks component
+        // positioning. Schedule all our work for 5 seconds later.
+        if (isContentPage()) {
+            setTimeout(() => {
+                injectBrandPill(); checkSources(); hookToastr(); initLogPanel();
+                initContentPage();
+                initDiagramTooltip();
+            }, 5000);
+            return;
+        }
+
         let att=0;
         const wait=setInterval(()=>{
             att++;
             // Bail if not a WebPort page
             if (att > 5 && !isWebPort()) { clearInterval(wait); return; }
-            // Brand pill, source check, and log panel on any WebPort page (once).
-            // On view-mode diagram pages, defer parent DOM modifications to avoid
-            // triggering iframe reflow during WebPort's rendering cycle.
-            if (isWebPort() && document.getElementById('top-menu') && !document.getElementById('inu-wp-pill')) {
-                if (isContentPage()) {
-                    setTimeout(() => { injectBrandPill(); checkSources(); hookToastr(); initLogPanel(); }, 5000);
-                } else {
-                    injectBrandPill(); checkSources(); hookToastr(); initLogPanel();
-                }
-            }
-            // Diagram tooltip: only after the page-type detection below clears
-            // the interval. Calling it here was racing with WebPort's rendering.
+            // Brand pill, source check, and log panel on any WebPort page (once)
+            if (isWebPort() && document.getElementById('top-menu') && !document.getElementById('inu-wp-pill')) { injectBrandPill(); checkSources(); hookToastr(); initLogPanel(); }
             if(isInuTagPage()){
                 clearInterval(wait);
                 console.log(CFG.logPrefix, 'v' + CFG.version, 'Activating');
@@ -6521,12 +6523,6 @@ ${this.buildTimelineHtml(group.key)}`;
             } else if(isDevicePage()){
                 clearInterval(wait);
                 initDevicePage();
-            } else if(isContentPage()){
-                clearInterval(wait);
-                // Delay content-page init to let WebPort finish rendering
-                // components before we touch the iframe. 5s is conservative
-                // but WebPort's async rendering can be slow on complex pages.
-                setTimeout(() => { initContentPage(); initDiagramTooltip(); }, 5000);
             } else if(isPageEditorPage()){
                 clearInterval(wait);
                 initPageEditor();
