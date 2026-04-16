@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1111
+// @version      7.3.20260416.1113
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -24,8 +24,17 @@
     // ============================================================
     // CONFIG
     // ============================================================
+    // Full version is read from the @version header (auto-stamped by sync script).
+    // Falls back to the base version if the header parse fails.
+    const _fullVersion = (function () {
+        try {
+            const m = GM_info && GM_info.script && GM_info.script.version;
+            if (m) return m;
+        } catch (e) {}
+        return '7.3';
+    })();
     const CFG = {
-        version: '7.3',
+        version: _fullVersion,
         logPrefix: '[INU WP+]',
         colOffset: 3,
         pollMs: 1000,
