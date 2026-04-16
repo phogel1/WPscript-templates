@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1215
+// @version      7.3.20260416.1223
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6224,6 +6224,7 @@ ${this.buildTimelineHtml(group.key)}`;
         btn.addEventListener('mouseleave', () => { btn.style.background = '#1e3a5f'; });
         btn.addEventListener('click', launchContentMonitor);
         document.body.appendChild(btn);
+        initDiagramTooltip();
     }
 
     // ============================================================
