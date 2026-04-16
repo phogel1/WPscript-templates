@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1605
+// @version      7.3.20260416.1616
 // @description  Enhanced UI for Kiona WebPort — start page editor
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6520,22 +6520,26 @@ ${this.buildTimelineHtml(group.key)}`;
 
     function _spe_buildHtml(vals) {
         let html = '<p>\n<script>\nwindow.onresize = function(event) {\n    var wwidth = $(window).width();\n    var maxWidth = 600;\n    if(wwidth > maxWidth){\n        $("#inuforecast").width(800);\n    }else{\n        $("#inuforecast").width(wwidth*0.9);\n    }\n};\n\n</script>\n</p>\n';
-        html += '<div style="width: 100%;">\n';
-        html += '<div style="text-align: center;">';
-        if (vals.imageSrc) html += '<br /><img style="display: block; margin: auto; width: clamp(200px,30vw,480px); height: auto;" src="' + vals.imageSrc + '" />';
-        html += '</div>\n';
-        html += '<br />\n';
-        html += '<h1 align="center">' + vals.siteName + '</h1>\n';
-        html += '<hr />\n';
-        html += '<h4 align="center">' + vals.street + '<br />' + vals.zipCity + '</h4>\n';
-        html += '<p>&nbsp;</p>\n<br />\n';
+        html += '<div style="width: 100%; max-width: 700px; margin: 40px auto 0; text-align: center; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,.08); overflow: hidden;">\n';
+        if (vals.imageSrc) {
+            html += '<div style="padding: 32px 20px 16px;">';
+            html += '<img style="display: block; margin: auto; max-width: 320px; max-height: 100px;" src="' + vals.imageSrc + '" />';
+            html += '</div>\n';
+        }
+        html += '<div style="padding: 8px 20px 8px;">';
+        html += '<h1 style="margin: 0 0 4px; font-size: 26px; color: #1a1a1a;">' + vals.siteName + '</h1>\n';
+        html += '<div style="width: 40px; height: 3px; background: #1b5e20; border-radius: 2px; margin: 12px auto 16px;"></div>\n';
+        html += '<p style="margin: 0 0 24px; font-size: 14px; color: #666;">' + vals.street + '<br />' + vals.zipCity + '</p>\n';
+        html += '</div>';
         if (vals.weatherHref) {
-            html += '<div id="inuforecast" style="height: 200px; width: 800px; margin: auto;">';
+            html += '<div id="inuforecast" style="height: 200px; width: 100%; max-width: 640px; margin: 0 auto; padding: 0 20px;">';
             html += '<a class="weatherwidget-io" href="' + vals.weatherHref + '" data-label_1="' + vals.weatherLabel + '" data-label_2="Just nu" data-theme="pure">' + vals.weatherLabel + ' Just nu</a>';
             html += '</div>\n';
             html += '<p>\n<script>\n!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=\'https://weatherwidget.io/js/widget.min.js\';fjs.parentNode.insertBefore(js,fjs);}}(document,\'script\',\'weatherwidget-io-js\');\n</script>\n</p>';
         }
-        html += '\n</div>';
+        html += '<div style="border-top: 1px solid #eee; padding: 12px 20px; margin-top: 16px;">';
+        html += '<p style="margin: 0; font-size: 10px; color: #bbb;">Powered by INU WebPort+</p>';
+        html += '</div>\n</div>';
         return html;
     }
 
@@ -6546,7 +6550,9 @@ ${this.buildTimelineHtml(group.key)}`;
         const hasContent = body.textContent.trim().length > 0 || body.querySelector('img');
         if (hasContent && !confirm('Startsidan har redan innehåll. Vill du ersätta allt med den nya mallen?')) return false;
         editor.setContent(_spe_buildHtml(vals));
+        editor.setDirty(true);
         editor.undoManager.add();
+        editor.fire('change');
         return true;
     }
 
