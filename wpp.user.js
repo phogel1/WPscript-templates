@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1356
+// @version      7.3.20260416.1410
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6210,23 +6210,22 @@ ${this.buildTimelineHtml(group.key)}`;
     }
 
     function initContentPage() {
-        const btn = document.createElement('button');
-        btn.id = 'inu-content-mon-btn';
-        btn.title = 'Live Monitor för denna sida (WP+)';
-        btn.innerHTML = '<i class="fa fa-television"></i>';
-        btn.style.cssText = [
-            'position:fixed', 'bottom:20px', 'right:20px', 'z-index:99999',
-            'width:46px', 'height:46px', 'border-radius:50%',
-            'background:#1e3a5f', 'color:#fff', 'border:none',
-            'font-size:18px', 'cursor:pointer',
-            'box-shadow:0 2px 10px rgba(0,0,0,.4)',
-            'display:flex', 'align-items:center', 'justify-content:center',
-            'transition:background .15s',
-        ].join(';');
-        btn.addEventListener('mouseenter', () => { btn.style.background = '#2d5a9e'; });
-        btn.addEventListener('mouseleave', () => { btn.style.background = '#1e3a5f'; });
-        btn.addEventListener('click', launchContentMonitor);
-        document.body.appendChild(btn);
+        if (document.getElementById('inu-content-fab')) return;
+        const fab = document.createElement('div');
+        fab.id = 'inu-content-fab';
+        fab.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;display:flex;gap:6px;align-items:center;';
+
+        const monBtn = document.createElement('button');
+        monBtn.id = 'inu-content-mon-btn';
+        monBtn.title = 'Live Monitor (WP+)';
+        monBtn.innerHTML = '<i class="fa fa-television"></i>';
+        monBtn.style.cssText = 'width:42px;height:42px;border-radius:50%;background:#1e3a5f;color:#fff;border:none;font-size:16px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;transition:background .15s;';
+        monBtn.addEventListener('mouseenter', () => { monBtn.style.background = '#2d5a9e'; });
+        monBtn.addEventListener('mouseleave', () => { monBtn.style.background = '#1e3a5f'; });
+        monBtn.addEventListener('click', launchContentMonitor);
+        fab.appendChild(monBtn);
+
+        document.body.appendChild(fab);
     }
 
     // ============================================================
@@ -6255,15 +6254,15 @@ ${this.buildTimelineHtml(group.key)}`;
         // Restore preference (default OFF)
         try { _diagramTooltipEnabled = GM_getValue('inu_diagram_tooltip', false); } catch (e) {}
 
-        // Toggle button — added to editor toolbar if it exists, otherwise
-        // as a fixed-position overlay.
+        // Toggle button — in editor toolbar (edit mode) or in the FAB
+        // group next to the monitor button (view mode).
         if (!document.getElementById('inu-dt-toggle')) {
             const btn = document.createElement('button');
             btn.id = 'inu-dt-toggle';
             function updateBtn() {
-                btn.textContent = _diagramTooltipEnabled ? '🏷 Tooltips PÅ' : '🏷 Tooltips AV';
-                btn.title = _diagramTooltipEnabled ? 'Klicka för att dölja diagram-tooltips' : 'Klicka för att visa diagram-tooltips';
-                btn.style.background = _diagramTooltipEnabled ? '#1565c0' : '#777';
+                btn.title = _diagramTooltipEnabled ? 'Tooltips PÅ — klicka för att dölja' : 'Tooltips AV — klicka för att visa';
+                btn.innerHTML = _diagramTooltipEnabled ? '<i class="fa fa-tags"></i>' : '<i class="fa fa-tags" style="opacity:.5"></i>';
+                btn.style.background = _diagramTooltipEnabled ? '#1565c0' : '#555';
             }
             btn.addEventListener('click', () => {
                 _diagramTooltipEnabled = !_diagramTooltipEnabled;
@@ -6277,8 +6276,11 @@ ${this.buildTimelineHtml(group.key)}`;
                 btn.style.cssText = 'background:#1565c0;color:#fff;border:none;border-radius:4px;padding:3px 9px;cursor:pointer;font-size:11px;font-weight:600;';
                 editorTb.appendChild(btn);
             } else {
-                btn.style.cssText = 'position:fixed;bottom:20px;left:20px;z-index:99999;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:none;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.3);';
-                document.body.appendChild(btn);
+                // Add to FAB group next to monitor button
+                btn.style.cssText = 'width:42px;height:42px;border-radius:50%;color:#fff;border:none;font-size:16px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;transition:background .15s;';
+                const fab = document.getElementById('inu-content-fab');
+                if (fab) fab.appendChild(btn);
+                else document.body.appendChild(btn);
             }
         }
 
