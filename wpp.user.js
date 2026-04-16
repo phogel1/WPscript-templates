@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1125
+// @version      7.3.20260416.1128
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6358,8 +6358,7 @@ ${this.buildTimelineHtml(group.key)}`;
                         const isAlarm = /_(AL\d*|FAULT|HAL|LAL)$/i.test(f.suffix);
                         const isActive = isAlarm && f.value !== '0' && f.value !== '';
                         const rowCls = isActive ? ' class="inu-dt-alarm"' : '';
-                        const realTag = realPrefix ? realPrefix + f.suffix : f.fullTag;
-                        html += '<tr' + rowCls + '><td class="inu-dt-suffix">' + _tplEsc(f.suffix) + '</td><td class="inu-dt-tag">' + _tplEsc(realTag) + '</td><td class="inu-dt-value">' + _tplEsc(f.value) + '</td></tr>';
+                        html += '<tr' + rowCls + '><td class="inu-dt-suffix">' + _tplEsc(f.suffix) + '</td><td class="inu-dt-value">' + _tplEsc(f.value) + '</td></tr>';
                     }
                     html += '</tbody></table>';
                 }
@@ -6404,6 +6403,12 @@ ${this.buildTimelineHtml(group.key)}`;
 .inu-dt-alarm .inu-dt-suffix { color:#f87171; }
 `;
         iDoc.head.appendChild(style);
+
+        // Suppress the old editor tooltip if it exists, and strip native
+        // title attributes that cause a duplicate browser tooltip.
+        const oldTip = iDoc.getElementById('inu-sym-tooltip');
+        if (oldTip) oldTip.remove();
+        wpp.querySelectorAll('.wpCompObject[title]').forEach(el => el.removeAttribute('title'));
 
         // Event delegation: .wpCompObject has pointer-events:none so direct
         // mouseenter doesn't fire. Instead listen on iDoc.body for mouseover
