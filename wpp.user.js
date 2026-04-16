@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1258
+// @version      7.3.20260416.1312
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6085,13 +6085,9 @@ ${this.buildTimelineHtml(group.key)}`;
     // CONTENT PAGE — floating Live Monitor button
     // ============================================================
     function isContentPage() {
-        if (location.pathname !== '/page') return false;
-        if (!/route=view/.test(location.search)) return false;
-        // Wait until iframe content has loaded with symbol elements
-        try {
-            const doc = document.querySelector('iframe')?.contentDocument;
-            return !!(doc && doc.querySelector('.komponent[data-prefix]'));
-        } catch(e) { return false; }
+        // URL-only check — no iframe access during polling to avoid
+        // disrupting WebPort's view-mode rendering cycle.
+        return location.pathname === '/page' && /route=view/.test(location.search);
     }
 
     function getContentPrefixes() {
@@ -6224,7 +6220,6 @@ ${this.buildTimelineHtml(group.key)}`;
         btn.addEventListener('mouseleave', () => { btn.style.background = '#1e3a5f'; });
         btn.addEventListener('click', launchContentMonitor);
         document.body.appendChild(btn);
-        initDiagramTooltip();
     }
 
     // ============================================================
@@ -6247,15 +6242,6 @@ ${this.buildTimelineHtml(group.key)}`;
         // If the iframe document is the same one we already initialized, skip.
         // If it changed (SPA navigation), re-initialize for the new page.
         if (_diagramTooltipDoc === iDoc) return;
-
-        // Defer initialization to give WebPort time to finish rendering
-        // components (rotations, SVG symbols, visibility). Without this
-        // delay, our DOM access can race with WebPort's init cycle.
-        if (!iDoc._inuTooltipDeferred) {
-            iDoc._inuTooltipDeferred = true;
-            setTimeout(() => { _diagramTooltipDoc = null; initDiagramTooltip(); }, 3000);
-            return;
-        }
 
         _diagramTooltipDoc = iDoc;
 
@@ -6501,9 +6487,8 @@ ${this.buildTimelineHtml(group.key)}`;
             if (att > 5 && !isWebPort()) { clearInterval(wait); return; }
             // Brand pill, source check, and log panel on any WebPort page (once)
             if (isWebPort() && document.getElementById('top-menu') && !document.getElementById('inu-wp-pill')) { injectBrandPill(); checkSources(); hookToastr(); initLogPanel(); }
-            // Diagram tooltip: retry each tick until the iframe's wpp container exists.
-            // Safe to call repeatedly — returns immediately if already active.
-            if (isWebPort()) initDiagramTooltip();
+            // Diagram tooltip: only after the page-type detection below clears
+            // the interval. Calling it here was racing with WebPort's rendering.
             if(isInuTagPage()){
                 clearInterval(wait);
                 console.log(CFG.logPrefix, 'v' + CFG.version, 'Activating');
@@ -6530,7 +6515,9 @@ ${this.buildTimelineHtml(group.key)}`;
                 initDevicePage();
             } else if(isContentPage()){
                 clearInterval(wait);
-                initContentPage();
+                // Delay content-page init to let WebPort finish rendering
+                // components before we touch the iframe.
+                setTimeout(() => { initContentPage(); initDiagramTooltip(); }, 3000);
             } else if(isPageEditorPage()){
                 clearInterval(wait);
                 initPageEditor();
