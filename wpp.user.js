@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1351
+// @version      7.3.20260416.1356
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -167,9 +167,10 @@
         const pill = document.createElement('span');
         pill.id = 'inu-wp-pill';
         pill.innerHTML = INU_LOGO_SVG + '<span style="margin-left:5px;">WebPort+</span>';
-        pill.style.cssText = 'position:fixed;top:4px;left:8px;z-index:99999;padding:3px 10px;border-radius:3px;font-size:10px;font-weight:600;color:#fff;background:#1b5e20;user-select:none;cursor:default;display:inline-flex;align-items:center;pointer-events:auto;';
+        pill.style.cssText = 'padding:3px 10px;border-radius:3px;font-size:10px;font-weight:600;color:#fff;background:#1b5e20;user-select:none;cursor:default;align-self:center;display:inline-flex;align-items:center;';
         pill.title = 'v' + CFG.version;
-        document.body.appendChild(pill);
+        const nav = topMenu.parentElement;
+        if (nav) nav.insertBefore(pill, nav.firstChild);
     }
 
     function injectStyles() {
@@ -6254,17 +6255,15 @@ ${this.buildTimelineHtml(group.key)}`;
         // Restore preference (default OFF)
         try { _diagramTooltipEnabled = GM_getValue('inu_diagram_tooltip', false); } catch (e) {}
 
-        // Toggle button next to brand pill
-        const pill = document.getElementById('inu-wp-pill');
-        if (pill && !document.getElementById('inu-dt-toggle')) {
-            const btn = document.createElement('span');
+        // Toggle button — added to editor toolbar if it exists, otherwise
+        // as a fixed-position overlay.
+        if (!document.getElementById('inu-dt-toggle')) {
+            const btn = document.createElement('button');
             btn.id = 'inu-dt-toggle';
-            btn.style.cssText = 'position:fixed;top:4px;left:120px;z-index:99999;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;user-select:none;pointer-events:auto;';
             function updateBtn() {
-                btn.style.background = _diagramTooltipEnabled ? '#1565c0' : '#555';
-                btn.style.color = '#fff';
                 btn.textContent = _diagramTooltipEnabled ? '🏷 Tooltips PÅ' : '🏷 Tooltips AV';
                 btn.title = _diagramTooltipEnabled ? 'Klicka för att dölja diagram-tooltips' : 'Klicka för att visa diagram-tooltips';
+                btn.style.background = _diagramTooltipEnabled ? '#1565c0' : '#777';
             }
             btn.addEventListener('click', () => {
                 _diagramTooltipEnabled = !_diagramTooltipEnabled;
@@ -6273,7 +6272,14 @@ ${this.buildTimelineHtml(group.key)}`;
                 if (!_diagramTooltipEnabled) hideTooltip();
             });
             updateBtn();
-            document.body.appendChild(btn);
+            const editorTb = iDoc.getElementById('inu-editor-toolbar');
+            if (editorTb) {
+                btn.style.cssText = 'background:#1565c0;color:#fff;border:none;border-radius:4px;padding:3px 9px;cursor:pointer;font-size:11px;font-weight:600;';
+                editorTb.appendChild(btn);
+            } else {
+                btn.style.cssText = 'position:fixed;bottom:20px;left:20px;z-index:99999;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:none;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.3);';
+                document.body.appendChild(btn);
+            }
         }
 
         // Cache for refreshvalues response
@@ -6450,23 +6456,6 @@ ${this.buildTimelineHtml(group.key)}`;
             }
         }, true);
 
-        // Fix missing rotations — WebPort sometimes fails to apply them during
-        // initial rendering (race condition with our script's DOM modifications).
-        // Parse r0/r90/r180/r270 from the SVG class and apply the transform.
-        wpp.querySelectorAll('.wpCompObject').forEach(comp => {
-            const img = comp.querySelector('.wpCompImage');
-            const svg = img?.querySelector('svg');
-            if (!img || !svg) return;
-            const cls = svg.getAttribute('class') || '';
-            const rotMatch = cls.match(/\br(\d+)\b/);
-            if (!rotMatch) return;
-            const deg = parseInt(rotMatch[1]);
-            if (deg === 0) return;
-            if (img.style.transform && img.style.transform.includes('rotate')) return;
-            const existing = img.style.transform || '';
-            img.style.transform = existing + (existing ? ' ' : '') + 'rotate(' + deg + 'deg)';
-        });
-
         console.log(CFG.logPrefix, 'Diagram tooltip active for', pageId, '(' + wpp.querySelectorAll('.wpCompObject').length + ' components)');
 
         // Watch for SPA navigation: if the iframe document changes, reset and
@@ -6486,17 +6475,14 @@ ${this.buildTimelineHtml(group.key)}`;
     // INIT
     // ============================================================
     function init() {
-        // View-mode diagram pages: run NOTHING until WebPort finishes
-        // rendering. Any DOM access — even parent-document — can disrupt
-        // the iframe component positioning.
+        // View-mode diagram pages: @noframes prevents iframe injection.
+        // Defer our init briefly to avoid racing with component rendering.
         if (isContentPage()) {
             setTimeout(() => {
-                injectBrandPill();
+                injectBrandPill(); checkSources(); hookToastr(); initLogPanel();
                 initContentPage();
-                // Tooltip disabled during debugging — initDiagramTooltip()
-                // was injecting CSS + modifying transforms inside the iframe
-                // which shifted all components at the 5-second mark.
-            }, 4000);
+                initDiagramTooltip();
+            }, 2000);
             return;
         }
 
