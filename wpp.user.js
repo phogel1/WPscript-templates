@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1604
+// @version      7.3.20260416.1605
 // @description  Enhanced UI for Kiona WebPort — start page editor
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6518,46 +6518,36 @@ ${this.buildTimelineHtml(group.key)}`;
         return { siteName, street, zipCity, weatherHref, weatherLabel, imageSrc };
     }
 
+    function _spe_buildHtml(vals) {
+        let html = '<p>\n<script>\nwindow.onresize = function(event) {\n    var wwidth = $(window).width();\n    var maxWidth = 600;\n    if(wwidth > maxWidth){\n        $("#inuforecast").width(800);\n    }else{\n        $("#inuforecast").width(wwidth*0.9);\n    }\n};\n\n</script>\n</p>\n';
+        html += '<div style="width: 100%;">\n';
+        html += '<div style="text-align: center;">';
+        if (vals.imageSrc) html += '<br /><img style="display: block; margin: auto; width: clamp(200px,30vw,480px); height: auto;" src="' + vals.imageSrc + '" />';
+        html += '</div>\n';
+        html += '<br />\n';
+        html += '<h1 align="center">' + vals.siteName + '</h1>\n';
+        html += '<hr />\n';
+        html += '<h4 align="center">' + vals.street + '<br />' + vals.zipCity + '</h4>\n';
+        html += '<p>&nbsp;</p>\n<br />\n';
+        if (vals.weatherHref) {
+            html += '<div id="inuforecast" style="height: 200px; width: 800px; margin: auto;">';
+            html += '<a class="weatherwidget-io" href="' + vals.weatherHref + '" data-label_1="' + vals.weatherLabel + '" data-label_2="Just nu" data-theme="pure">' + vals.weatherLabel + ' Just nu</a>';
+            html += '</div>\n';
+            html += '<p>\n<script>\n!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=\'https://weatherwidget.io/js/widget.min.js\';fjs.parentNode.insertBefore(js,fjs);}}(document,\'script\',\'weatherwidget-io-js\');\n</script>\n</p>';
+        }
+        html += '\n</div>';
+        return html;
+    }
+
     function _spe_applyContent(vals) {
         const editor = typeof tinymce !== 'undefined' && tinymce.activeEditor;
         if (!editor) return;
         const body = editor.getBody();
-        const h1 = body.querySelector('h1');
-        const h4 = body.querySelector('h4');
-        const anchor = body.querySelector('a.weatherwidget-io');
-        const img = body.querySelector('img');
-
-        if (h1 || h4 || anchor || img) {
-            if (h1) h1.textContent = vals.siteName;
-            if (h4) h4.innerHTML = vals.street + '<br>' + vals.zipCity;
-            if (anchor) {
-                anchor.setAttribute('href', vals.weatherHref);
-                anchor.setAttribute('data-label_1', vals.weatherLabel);
-                anchor.textContent = vals.weatherLabel + ' Just nu';
-            }
-            if (img && vals.imageSrc) img.setAttribute('src', vals.imageSrc);
-        } else {
-            let html = '<p>\n<script>\nwindow.onresize = function(event) {\n    var wwidth = $(window).width();\n    var maxWidth = 600;\n    if(wwidth > maxWidth){\n        $("#inuforecast").width(800);\n    }else{\n        $("#inuforecast").width(wwidth*0.9);\n    }\n};\n\n</script>\n</p>\n';
-            html += '<div style="width: 100%;">\n';
-            html += '<div style="text-align: center;">';
-            if (vals.imageSrc) html += '<br /><img style="display: block; margin: auto; width: clamp(200px,30vw,480px); height: auto;" src="' + vals.imageSrc + '" />';
-            html += '</div>\n';
-            html += '<br />\n';
-            html += '<h1 align="center">' + vals.siteName + '</h1>\n';
-            html += '<hr />\n';
-            html += '<h4 align="center">' + vals.street + '<br />' + vals.zipCity + '</h4>\n';
-            html += '<p>&nbsp;</p>\n<br />\n';
-            if (vals.weatherHref) {
-                html += '<div id="inuforecast" style="height: 200px; width: 800px; margin: auto;">';
-                html += '<a class="weatherwidget-io" href="' + vals.weatherHref + '" data-label_1="' + vals.weatherLabel + '" data-label_2="Just nu" data-theme="pure">' + vals.weatherLabel + ' Just nu</a>';
-                html += '</div>\n';
-                html += '<p>\n<script>\n!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=\'https://weatherwidget.io/js/widget.min.js\';fjs.parentNode.insertBefore(js,fjs);}}(document,\'script\',\'weatherwidget-io-js\');\n</script>\n</p>';
-            }
-            html += '\n</div>';
-            editor.setContent(html);
-        }
-
+        const hasContent = body.textContent.trim().length > 0 || body.querySelector('img');
+        if (hasContent && !confirm('Startsidan har redan innehåll. Vill du ersätta allt med den nya mallen?')) return false;
+        editor.setContent(_spe_buildHtml(vals));
         editor.undoManager.add();
+        return true;
     }
 
     let _spe_pageid = '';
@@ -6758,7 +6748,7 @@ ${this.buildTimelineHtml(group.key)}`;
                 imageSrc: imgSrc
             };
             if (!vals.siteName) { toastErr('Ange anläggningsnamn'); return; }
-            _spe_applyContent(vals);
+            if (_spe_applyContent(vals) === false) return;
             m.remove();
             toastOk('Startsida uppdaterad — spara sidan för att verkställa');
         });

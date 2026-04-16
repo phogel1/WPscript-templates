@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1604
+// @version      7.3.20260416.1605
 // @description  Enhanced UI for Kiona WebPort — start page editor
 // @match        *://*/*
 // @grant        GM_setValue
