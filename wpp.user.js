@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1128
+// @version      7.3.20260416.1132
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6346,10 +6346,13 @@ ${this.buildTimelineHtml(group.key)}`;
 
             function renderContent() {
                 const realPrefix = prefixCache[poid];
-                const tagStem = realPrefix || poid.replace(/-5F-/g, '_');
 
                 let html = '<div class="inu-dt-header">' + _tplEsc(label) + '</div>';
-                html += '<div class="inu-dt-stem">' + _tplEsc(tagStem) + '</div>';
+                if (realPrefix) {
+                    html += '<div class="inu-dt-stem">' + _tplEsc(realPrefix) + '</div>';
+                } else if (realPrefix === null) {
+                    html += '<div class="inu-dt-stem inu-dt-loading">⏳ Laddar taggnamn...</div>';
+                }
                 if (funcs.length === 0) {
                     html += '<div class="inu-dt-empty">Inga taggvärden</div>';
                 } else {
@@ -6392,6 +6395,7 @@ ${this.buildTimelineHtml(group.key)}`;
 .inu-diagram-tooltip { position:fixed; z-index:99999; background:#1e293b; color:#e2e8f0; border-radius:6px; box-shadow:0 6px 24px rgba(0,0,0,.4); padding:0; min-width:200px; max-width:420px; font-family:system-ui,-apple-system,sans-serif; font-size:12px; pointer-events:none; }
 .inu-dt-header { padding:8px 12px 2px; font-weight:700; font-size:13px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .inu-dt-stem { padding:0 12px 6px; font-family:monospace; font-size:11px; color:#64748b; border-bottom:1px solid #334155; }
+.inu-dt-loading { color:#475569; font-style:italic; font-family:system-ui,-apple-system,sans-serif; }
 .inu-dt-empty { padding:8px 12px; font-size:11px; color:#94a3b8; font-style:italic; }
 .inu-dt-table { width:100%; border-collapse:collapse; }
 .inu-dt-table td { padding:3px 10px; border-bottom:1px solid #262f3d; }
