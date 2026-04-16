@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.02
+// @version      7.03
 // @description  Enhanced UI for Kiona WebPort — tag scaling, alarm/trend management, live commissioning monitor, device IP overview, inline editing, bulk operations, tag duplicator, activity log, page editor with text position controls, server-side position persistence, PID advisor with oscillation detection fix, OP stats, unresponsive controller detection, C1-C4 analysis improvements, Add from Template (IVProdukt Climatix AHU, NIBE SMO S40)
 // @match        *://*/*
 // @grant        GM_setValue
@@ -23,7 +23,7 @@
     // CONFIG
     // ============================================================
     const CFG = {
-        version: '7.02',
+        version: '7.03',
         logPrefix: '[INU WP+]',
         colOffset: 3,
         pollMs: 1000,
@@ -1445,7 +1445,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     // ============================================================
     // Inline index of available device templates. Per-device JSON files are
     // lazy-fetched from TEMPLATE_BASE_URL and cached in GM storage.
-    const TEMPLATE_BASE_URL = 'https://phogel1.github.io/WPscript-templates/';
+    const TEMPLATE_BASE_URL = 'https://phogel1.github.io/static-assets/';
     const TEMPLATE_INDEX = {
         version: '2026-04-15.6',
         manufacturers: [
@@ -6212,6 +6212,157 @@ ${this.buildTimelineHtml(group.key)}`;
     }
 
     // ============================================================
+    // DIAGRAM TOOLTIP — hover a symbol to see all related tag values
+    // ============================================================
+    let _diagramTooltipActive = false;
+
+    function initDiagramTooltip() {
+        const iframe = document.querySelector('iframe');
+        if (!iframe) return;
+        const iDoc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!iDoc) return;
+        const wpp = iDoc.getElementById('wpp');
+        if (!wpp) return;
+        const pageId = new URLSearchParams(location.search).get('pageid');
+        if (!pageId) return;
+        if (_diagramTooltipActive) return;
+        _diagramTooltipActive = true;
+
+        // Cache for refreshvalues response
+        let cachedData = null;
+
+        function fetchValues() {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', '/page/refreshvalues?pageid=' + encodeURIComponent(pageId) + '&_=' + Date.now(), true);
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    try { cachedData = JSON.parse(xhr.responseText); } catch (e) { /* ignore */ }
+                }
+            };
+            xhr.send();
+        }
+
+        // Fetch immediately + refresh every 2s
+        fetchValues();
+        setInterval(fetchValues, 2000);
+
+        // Extract poid from a component div's id
+        // Format: "...pageid...-2E-<poid>"
+        function extractPoid(el) {
+            const div = el.closest('.wpCompObject');
+            if (!div || !div.id) return null;
+            const parts = div.id.split('-2E-');
+            return parts.length > 1 ? parts[parts.length - 1] : null;
+        }
+
+        function decodePoid(encoded) {
+            return encoded.replace(/-5F-/g, '_');
+        }
+
+        // Find all functions (tag value slots) for a given poid
+        function getFunctionsForPoid(poid) {
+            if (!cachedData || !cachedData.functions) return [];
+            const prefix = poid + '-5F-';
+            return cachedData.functions.filter(f => f.id && f.id.startsWith(prefix)).map(f => {
+                const suffix = f.id.substring(prefix.length).replace(/-5F-/g, '_');
+                return { suffix: '_' + suffix, value: f.value || '', status: f.status || '' };
+            });
+        }
+
+        // Find the object entry for a poid
+        function getObjectForPoid(poid) {
+            if (!cachedData || !cachedData.objects) return null;
+            return cachedData.objects.find(o => o.poid === poid);
+        }
+
+        // Tooltip element
+        let tooltip = null;
+
+        function showTooltip(el, poid) {
+            hideTooltip();
+            const obj = getObjectForPoid(poid);
+            const funcs = getFunctionsForPoid(poid);
+            const label = obj ? (obj.text || decodePoid(poid)) : decodePoid(poid);
+
+            tooltip = iDoc.createElement('div');
+            tooltip.className = 'inu-diagram-tooltip';
+
+            let html = '<div class="inu-dt-header">' + _tplEsc(label) + '</div>';
+            if (funcs.length === 0) {
+                html += '<div class="inu-dt-empty">Inga taggvärden tillgängliga</div>';
+            } else {
+                html += '<table class="inu-dt-table"><tbody>';
+                for (const f of funcs) {
+                    const isAlarm = /_(AL\d*|FAULT|HAL|LAL)$/i.test(f.suffix);
+                    const isActive = isAlarm && f.value !== '0' && f.value !== '';
+                    const rowCls = isActive ? ' class="inu-dt-alarm"' : '';
+                    html += '<tr' + rowCls + '><td class="inu-dt-suffix">' + _tplEsc(f.suffix) + '</td><td class="inu-dt-value">' + _tplEsc(f.value) + '</td></tr>';
+                }
+                html += '</tbody></table>';
+            }
+            tooltip.innerHTML = html;
+            iDoc.body.appendChild(tooltip);
+
+            // Position near the component
+            const rect = el.closest('.wpCompObject')?.getBoundingClientRect();
+            if (rect) {
+                const iframeRect = iframe.getBoundingClientRect();
+                let left = rect.right + 8;
+                let top = rect.top;
+                // Keep inside viewport
+                const tw = tooltip.offsetWidth;
+                const th = tooltip.offsetHeight;
+                const vw = iframe.contentWindow.innerWidth;
+                const vh = iframe.contentWindow.innerHeight;
+                if (left + tw > vw - 8) left = rect.left - tw - 8;
+                if (top + th > vh - 8) top = Math.max(8, vh - th - 8);
+                tooltip.style.left = left + 'px';
+                tooltip.style.top = top + 'px';
+            }
+        }
+
+        function hideTooltip() {
+            if (tooltip) { tooltip.remove(); tooltip = null; }
+        }
+
+        // Inject tooltip CSS into iframe
+        const style = iDoc.createElement('style');
+        style.textContent = `
+.inu-diagram-tooltip { position:fixed; z-index:99999; background:#1e293b; color:#e2e8f0; border-radius:6px; box-shadow:0 6px 24px rgba(0,0,0,.4); padding:0; min-width:180px; max-width:320px; font-family:system-ui,-apple-system,sans-serif; font-size:12px; pointer-events:none; }
+.inu-dt-header { padding:8px 12px; font-weight:700; font-size:13px; color:#fff; border-bottom:1px solid #334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.inu-dt-empty { padding:8px 12px; font-size:11px; color:#94a3b8; font-style:italic; }
+.inu-dt-table { width:100%; border-collapse:collapse; }
+.inu-dt-table td { padding:4px 12px; border-bottom:1px solid #334155; }
+.inu-dt-table tr:last-child td { border-bottom:none; }
+.inu-dt-suffix { font-family:monospace; font-weight:600; color:#94a3b8; font-size:11px; white-space:nowrap; }
+.inu-dt-value { text-align:right; font-family:monospace; font-weight:600; color:#e2e8f0; font-size:12px; white-space:nowrap; }
+.inu-dt-alarm .inu-dt-value { color:#f87171; }
+.inu-dt-alarm .inu-dt-suffix { color:#f87171; }
+`;
+        iDoc.head.appendChild(style);
+
+        // Attach hover events to all component divs
+        function attachListeners() {
+            const compDivs = wpp.querySelectorAll('.wpCompObject');
+            compDivs.forEach(div => {
+                if (div._inuTTBound) return;
+                div._inuTTBound = true;
+                div.addEventListener('mouseenter', function () {
+                    const poid = extractPoid(this);
+                    if (poid) showTooltip(this, poid);
+                });
+                div.addEventListener('mouseleave', hideTooltip);
+            });
+        }
+
+        // Attach now and re-attach when new components appear
+        attachListeners();
+        new MutationObserver(() => setTimeout(attachListeners, 200)).observe(wpp, { childList: true, subtree: true });
+
+        console.log(CFG.logPrefix, 'Diagram tooltip active for', pageId, '(' + wpp.querySelectorAll('.wpCompObject').length + ' components)');
+    }
+
+    // ============================================================
     // INIT
     // ============================================================
     function init() {
@@ -6221,7 +6372,7 @@ ${this.buildTimelineHtml(group.key)}`;
             // Bail if not a WebPort page
             if (att > 5 && !isWebPort()) { clearInterval(wait); return; }
             // Brand pill, source check, and log panel on any WebPort page (once)
-            if (isWebPort() && document.getElementById('top-menu') && !document.getElementById('inu-wp-pill')) { injectBrandPill(); checkSources(); hookToastr(); initLogPanel(); }
+            if (isWebPort() && document.getElementById('top-menu') && !document.getElementById('inu-wp-pill')) { injectBrandPill(); checkSources(); hookToastr(); initLogPanel(); initDiagramTooltip(); }
             if(isInuTagPage()){
                 clearInterval(wait);
                 console.log(CFG.logPrefix, 'v' + CFG.version, 'Activating');
