@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1114
+// @version      7.3.20260416.1118
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6230,6 +6230,8 @@ ${this.buildTimelineHtml(group.key)}`;
     let _diagramTooltipEnabled = true;
 
     function initDiagramTooltip() {
+        if (_diagramTooltipActive) return;
+        try {
         const iframe = document.querySelector('iframe');
         if (!iframe) return;
         const iDoc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -6238,8 +6240,6 @@ ${this.buildTimelineHtml(group.key)}`;
         if (!wpp) return;
         const pageId = new URLSearchParams(location.search).get('pageid');
         if (!pageId) return;
-        if (_diagramTooltipActive) return;
-        _diagramTooltipActive = true;
 
         // Restore preference (default OFF)
         try { _diagramTooltipEnabled = GM_getValue('inu_diagram_tooltip', false); } catch (e) {}
@@ -6423,7 +6423,9 @@ ${this.buildTimelineHtml(group.key)}`;
             }
         }, true);
 
+        _diagramTooltipActive = true;
         console.log(CFG.logPrefix, 'Diagram tooltip active for', pageId, '(' + wpp.querySelectorAll('.wpCompObject').length + ' components)');
+        } catch (e) { console.error(CFG.logPrefix, 'Diagram tooltip init failed:', e); }
     }
 
     // ============================================================
