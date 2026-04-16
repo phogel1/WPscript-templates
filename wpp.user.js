@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1312
+// @version      7.3.20260416.1315
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6485,8 +6485,16 @@ ${this.buildTimelineHtml(group.key)}`;
             att++;
             // Bail if not a WebPort page
             if (att > 5 && !isWebPort()) { clearInterval(wait); return; }
-            // Brand pill, source check, and log panel on any WebPort page (once)
-            if (isWebPort() && document.getElementById('top-menu') && !document.getElementById('inu-wp-pill')) { injectBrandPill(); checkSources(); hookToastr(); initLogPanel(); }
+            // Brand pill, source check, and log panel on any WebPort page (once).
+            // On view-mode diagram pages, defer parent DOM modifications to avoid
+            // triggering iframe reflow during WebPort's rendering cycle.
+            if (isWebPort() && document.getElementById('top-menu') && !document.getElementById('inu-wp-pill')) {
+                if (isContentPage()) {
+                    setTimeout(() => { injectBrandPill(); checkSources(); hookToastr(); initLogPanel(); }, 5000);
+                } else {
+                    injectBrandPill(); checkSources(); hookToastr(); initLogPanel();
+                }
+            }
             // Diagram tooltip: only after the page-type detection below clears
             // the interval. Calling it here was racing with WebPort's rendering.
             if(isInuTagPage()){
@@ -6516,8 +6524,9 @@ ${this.buildTimelineHtml(group.key)}`;
             } else if(isContentPage()){
                 clearInterval(wait);
                 // Delay content-page init to let WebPort finish rendering
-                // components before we touch the iframe.
-                setTimeout(() => { initContentPage(); initDiagramTooltip(); }, 3000);
+                // components before we touch the iframe. 5s is conservative
+                // but WebPort's async rendering can be slow on complex pages.
+                setTimeout(() => { initContentPage(); initDiagramTooltip(); }, 5000);
             } else if(isPageEditorPage()){
                 clearInterval(wait);
                 initPageEditor();
