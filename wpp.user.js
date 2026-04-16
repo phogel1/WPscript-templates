@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1348
+// @version      7.3.20260416.1351
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6491,9 +6491,11 @@ ${this.buildTimelineHtml(group.key)}`;
         // the iframe component positioning.
         if (isContentPage()) {
             setTimeout(() => {
-                injectBrandPill(); hookToastr();
+                injectBrandPill();
                 initContentPage();
-                initDiagramTooltip();
+                // Tooltip disabled during debugging — initDiagramTooltip()
+                // was injecting CSS + modifying transforms inside the iframe
+                // which shifted all components at the 5-second mark.
             }, 4000);
             return;
         }
