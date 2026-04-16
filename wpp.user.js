@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1132
+// @version      7.3.20260416.1136
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6313,6 +6313,8 @@ ${this.buildTimelineHtml(group.key)}`;
 
         // Prefix cache: poid → real tag prefix (e.g. "03_AS01_KVP001_DHW_LOWER").
         // Fetched once per component via /Page/PageObjectProperties.
+        // When the fetch completes and a tooltip is still showing for the same
+        // poid, the tooltip content is re-rendered in place.
         const prefixCache = {};
         function fetchPrefix(poid) {
             if (poid in prefixCache) return;
@@ -6326,49 +6328,55 @@ ${this.buildTimelineHtml(group.key)}`;
                     const doc = new DOMParser().parseFromString(xhr.responseText, 'text/html');
                     const pfx = doc.querySelector('textarea[name="prefix"], input[name="prefix"]');
                     if (pfx && pfx.value) prefixCache[poid] = pfx.value;
+                    else prefixCache[poid] = '';
+                }
+                // Re-render tooltip if still showing for this poid
+                if (tooltip && currentPoid === poid) {
+                    tooltip.innerHTML = renderContentForPoid(poid);
                 }
             };
             xhr.send();
         }
 
-        function showTooltip(compEl, poid) {
-            hideTooltip();
-            currentPoid = poid;
+        // Render tooltip HTML for a given poid — called from showTooltip
+        // and again from the fetchPrefix callback when the real name arrives.
+        function renderContentForPoid(poid) {
             const obj = getObjectForPoid(poid);
             const funcs = getFunctionsForPoid(poid);
             const label = obj ? (obj.text || poid.replace(/-5F-/g, '_')) : poid.replace(/-5F-/g, '_');
+            const realPrefix = prefixCache[poid];
+
+            let html = '<div class="inu-dt-header">' + _tplEsc(label) + '</div>';
+            if (realPrefix) {
+                html += '<div class="inu-dt-stem">' + _tplEsc(realPrefix) + '</div>';
+            } else if (realPrefix === null) {
+                html += '<div class="inu-dt-stem inu-dt-loading"></div>';
+            }
+            if (funcs.length === 0) {
+                html += '<div class="inu-dt-empty">Inga taggvärden</div>';
+            } else {
+                html += '<table class="inu-dt-table"><tbody>';
+                for (const f of funcs) {
+                    const isAlarm = /_(AL\d*|FAULT|HAL|LAL)$/i.test(f.suffix);
+                    const isActive = isAlarm && f.value !== '0' && f.value !== '';
+                    const rowCls = isActive ? ' class="inu-dt-alarm"' : '';
+                    html += '<tr' + rowCls + '><td class="inu-dt-suffix">' + _tplEsc(f.suffix) + '</td><td class="inu-dt-value">' + _tplEsc(f.value) + '</td></tr>';
+                }
+                html += '</tbody></table>';
+            }
+            return html;
+        }
+
+        function showTooltip(compEl, poid) {
+            hideTooltip();
+            currentPoid = poid;
+
+            // Kick off prefix fetch — re-renders tooltip in place when it completes
+            fetchPrefix(poid);
 
             tooltip = iDoc.createElement('div');
             tooltip.className = 'inu-diagram-tooltip';
-
-            // Kick off prefix fetch for this component
-            fetchPrefix(poid);
-
-            function renderContent() {
-                const realPrefix = prefixCache[poid];
-
-                let html = '<div class="inu-dt-header">' + _tplEsc(label) + '</div>';
-                if (realPrefix) {
-                    html += '<div class="inu-dt-stem">' + _tplEsc(realPrefix) + '</div>';
-                } else if (realPrefix === null) {
-                    html += '<div class="inu-dt-stem inu-dt-loading">⏳ Laddar taggnamn...</div>';
-                }
-                if (funcs.length === 0) {
-                    html += '<div class="inu-dt-empty">Inga taggvärden</div>';
-                } else {
-                    html += '<table class="inu-dt-table"><tbody>';
-                    for (const f of funcs) {
-                        const isAlarm = /_(AL\d*|FAULT|HAL|LAL)$/i.test(f.suffix);
-                        const isActive = isAlarm && f.value !== '0' && f.value !== '';
-                        const rowCls = isActive ? ' class="inu-dt-alarm"' : '';
-                        html += '<tr' + rowCls + '><td class="inu-dt-suffix">' + _tplEsc(f.suffix) + '</td><td class="inu-dt-value">' + _tplEsc(f.value) + '</td></tr>';
-                    }
-                    html += '</tbody></table>';
-                }
-                return html;
-            }
-
-            tooltip.innerHTML = renderContent();
+            tooltip.innerHTML = renderContentForPoid(poid);
             iDoc.body.appendChild(tooltip);
 
             const rect = compEl.getBoundingClientRect();
@@ -6395,7 +6403,8 @@ ${this.buildTimelineHtml(group.key)}`;
 .inu-diagram-tooltip { position:fixed; z-index:99999; background:#1e293b; color:#e2e8f0; border-radius:6px; box-shadow:0 6px 24px rgba(0,0,0,.4); padding:0; min-width:200px; max-width:420px; font-family:system-ui,-apple-system,sans-serif; font-size:12px; pointer-events:none; }
 .inu-dt-header { padding:8px 12px 2px; font-weight:700; font-size:13px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .inu-dt-stem { padding:0 12px 6px; font-family:monospace; font-size:11px; color:#64748b; border-bottom:1px solid #334155; }
-.inu-dt-loading { color:#475569; font-style:italic; font-family:system-ui,-apple-system,sans-serif; }
+.inu-dt-loading::after { content:'.'; animation:inu-dt-dots 1.2s steps(3,end) infinite; }
+@keyframes inu-dt-dots { 33% { content:'..'; } 66% { content:'...'; } 100% { content:'.'; } }
 .inu-dt-empty { padding:8px 12px; font-size:11px; color:#94a3b8; font-style:italic; }
 .inu-dt-table { width:100%; border-collapse:collapse; }
 .inu-dt-table td { padding:3px 10px; border-bottom:1px solid #262f3d; }
