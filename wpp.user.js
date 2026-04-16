@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1108
+// @version      7.3.20260416.1111
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6334,19 +6334,21 @@ ${this.buildTimelineHtml(group.key)}`;
             tooltip = iDoc.createElement('div');
             tooltip.className = 'inu-diagram-tooltip';
 
+            const tagStem = poid.replace(/-5F-/g, '_');
+
             function renderContent() {
                 let html = '<div class="inu-dt-header">' + _tplEsc(label) + '</div>';
+                html += '<div class="inu-dt-stem">' + _tplEsc(tagStem) + '</div>';
                 if (funcs.length === 0) {
                     html += '<div class="inu-dt-empty">Inga taggvärden</div>';
                 } else {
-                    html += '<table class="inu-dt-table">';
-                    html += '<thead><tr><th>Tagg</th><th>Adress</th><th>Värde</th></tr></thead><tbody>';
+                    html += '<table class="inu-dt-table"><tbody>';
                     for (const f of funcs) {
                         const isAlarm = /_(AL\d*|FAULT|HAL|LAL)$/i.test(f.suffix);
                         const isActive = isAlarm && f.value !== '0' && f.value !== '';
                         const rowCls = isActive ? ' class="inu-dt-alarm"' : '';
                         const addr = addrCache[f.fullTag] || '';
-                        html += '<tr' + rowCls + '><td class="inu-dt-tag">' + _tplEsc(f.fullTag) + '</td><td class="inu-dt-addr">' + _tplEsc(addr) + '</td><td class="inu-dt-value">' + _tplEsc(f.value) + '</td></tr>';
+                        html += '<tr' + rowCls + '><td class="inu-dt-suffix">' + _tplEsc(f.suffix) + '</td><td class="inu-dt-addr">' + _tplEsc(addr) + '</td><td class="inu-dt-value">' + _tplEsc(f.value) + '</td></tr>';
                     }
                     html += '</tbody></table>';
                 }
@@ -6377,19 +6379,18 @@ ${this.buildTimelineHtml(group.key)}`;
         // Inject tooltip CSS into iframe
         const style = iDoc.createElement('style');
         style.textContent = `
-.inu-diagram-tooltip { position:fixed; z-index:99999; background:#1e293b; color:#e2e8f0; border-radius:6px; box-shadow:0 6px 24px rgba(0,0,0,.4); padding:0; min-width:280px; max-width:520px; font-family:system-ui,-apple-system,sans-serif; font-size:12px; pointer-events:none; }
-.inu-dt-header { padding:8px 12px; font-weight:700; font-size:13px; color:#fff; border-bottom:1px solid #334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.inu-diagram-tooltip { position:fixed; z-index:99999; background:#1e293b; color:#e2e8f0; border-radius:6px; box-shadow:0 6px 24px rgba(0,0,0,.4); padding:0; min-width:200px; max-width:420px; font-family:system-ui,-apple-system,sans-serif; font-size:12px; pointer-events:none; }
+.inu-dt-header { padding:8px 12px 2px; font-weight:700; font-size:13px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.inu-dt-stem { padding:0 12px 6px; font-family:monospace; font-size:11px; color:#64748b; border-bottom:1px solid #334155; }
 .inu-dt-empty { padding:8px 12px; font-size:11px; color:#94a3b8; font-style:italic; }
 .inu-dt-table { width:100%; border-collapse:collapse; }
-.inu-dt-table th { padding:4px 10px; font-size:9px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.5px; text-align:left; border-bottom:1px solid #334155; }
-.inu-dt-table td { padding:3px 10px; border-bottom:1px solid #1e293b; }
+.inu-dt-table td { padding:3px 10px; border-bottom:1px solid #262f3d; }
 .inu-dt-table tr:last-child td { border-bottom:none; }
-.inu-dt-table tbody tr:hover td { background:rgba(255,255,255,.04); }
-.inu-dt-tag { font-family:monospace; font-size:11px; color:#94a3b8; white-space:nowrap; }
-.inu-dt-addr { font-family:monospace; font-size:11px; color:#64748b; white-space:nowrap; }
+.inu-dt-suffix { font-family:monospace; font-weight:600; color:#94a3b8; font-size:11px; white-space:nowrap; }
+.inu-dt-addr { font-family:monospace; font-size:10px; color:#475569; white-space:nowrap; }
 .inu-dt-value { text-align:right; font-family:monospace; font-weight:600; color:#e2e8f0; font-size:12px; white-space:nowrap; }
 .inu-dt-alarm .inu-dt-value { color:#f87171; }
-.inu-dt-alarm .inu-dt-tag { color:#f87171; }
+.inu-dt-alarm .inu-dt-suffix { color:#f87171; }
 `;
         iDoc.head.appendChild(style);
 
