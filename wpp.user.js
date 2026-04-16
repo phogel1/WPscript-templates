@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1557
+// @version      7.3.20260416.1602
 // @description  Enhanced UI for Kiona WebPort — start page editor
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6543,18 +6543,28 @@ ${this.buildTimelineHtml(group.key)}`;
 
     async function _spe_getPageId() {
         if (_spe_pageid) return _spe_pageid;
-        const link = document.querySelector('a[href*="pageid="]');
-        if (link) {
-            const m = link.href.match(/pageid=([^&"']+)/);
-            if (m) { _spe_pageid = m[1]; return _spe_pageid; }
-        }
         try {
-            const r = await fetch('/page');
+            let urlPid = '';
+            const link = document.querySelector('a[href*="pageid="]');
+            if (link) {
+                const m = link.href.match(/pageid=([^&"']+)/);
+                if (m) urlPid = m[1];
+            }
+            if (!urlPid) {
+                const r = await fetch('/page');
+                const html = await r.text();
+                const m = html.match(/pageid=([^&"']+)/);
+                if (m) urlPid = m[1];
+            }
+            if (!urlPid) return '';
+            const r = await fetch('/page/pageproperties?pageid=' + urlPid);
             const html = await r.text();
-            const m = html.match(/pageid=([^&"']+)/);
-            if (m) { _spe_pageid = m[1]; return _spe_pageid; }
-        } catch (e) {}
-        return '';
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const inp = doc.querySelector('input[name="pageid"]');
+            if (inp) { _spe_pageid = inp.value; return _spe_pageid; }
+            _spe_pageid = urlPid;
+            return _spe_pageid;
+        } catch (e) { return ''; }
     }
 
     async function _spe_fetchBackgrounds() {
