@@ -6025,7 +6025,8 @@ ${this.buildTimelineHtml(group.key)}`;
 
             if (!iDoc.body.hasAttribute('tabindex')) iDoc.body.setAttribute('tabindex', '-1');
             editorBindKeyboard(iDoc);
-            editorInitTooltip(iDoc, panel);
+            // editorInitTooltip disabled — replaced by diagram tooltip (initDiagramTooltip)
+            // which shows the same label + all related live tag values in one tooltip.
             iframe.contentWindow.focus();
 
             editorUpdateToolbarContext();
@@ -6215,6 +6216,7 @@ ${this.buildTimelineHtml(group.key)}`;
     // DIAGRAM TOOLTIP — hover a symbol to see all related tag values
     // ============================================================
     let _diagramTooltipActive = false;
+    let _diagramTooltipEnabled = true;
 
     function initDiagramTooltip() {
         const iframe = document.querySelector('iframe');
@@ -6227,6 +6229,31 @@ ${this.buildTimelineHtml(group.key)}`;
         if (!pageId) return;
         if (_diagramTooltipActive) return;
         _diagramTooltipActive = true;
+
+        // Restore preference
+        try { _diagramTooltipEnabled = GM_getValue('inu_diagram_tooltip', true); } catch (e) {}
+
+        // Toggle button next to brand pill
+        const pill = document.getElementById('inu-wp-pill');
+        if (pill && !document.getElementById('inu-dt-toggle')) {
+            const btn = document.createElement('span');
+            btn.id = 'inu-dt-toggle';
+            btn.style.cssText = 'padding:3px 8px;border-radius:3px;font-size:10px;font-weight:600;cursor:pointer;align-self:center;display:inline-flex;align-items:center;gap:4px;margin-left:4px;user-select:none;';
+            function updateBtn() {
+                btn.style.background = _diagramTooltipEnabled ? '#1565c0' : '#555';
+                btn.style.color = '#fff';
+                btn.textContent = _diagramTooltipEnabled ? '🏷 Tooltips PÅ' : '🏷 Tooltips AV';
+                btn.title = _diagramTooltipEnabled ? 'Klicka för att dölja diagram-tooltips' : 'Klicka för att visa diagram-tooltips';
+            }
+            btn.addEventListener('click', () => {
+                _diagramTooltipEnabled = !_diagramTooltipEnabled;
+                try { GM_setValue('inu_diagram_tooltip', _diagramTooltipEnabled); } catch (e) {}
+                updateBtn();
+                if (!_diagramTooltipEnabled) hideTooltip();
+            });
+            updateBtn();
+            pill.parentElement.insertBefore(btn, pill.nextSibling);
+        }
 
         // Cache for refreshvalues response
         let cachedData = null;
@@ -6242,12 +6269,9 @@ ${this.buildTimelineHtml(group.key)}`;
             xhr.send();
         }
 
-        // Fetch immediately + refresh every 2s
         fetchValues();
         setInterval(fetchValues, 2000);
 
-        // Extract poid from a component div's id
-        // Format: "...pageid...-2E-<poid>"
         function extractPoid(el) {
             const div = el.closest('.wpCompObject');
             if (!div || !div.id) return null;
@@ -6255,41 +6279,36 @@ ${this.buildTimelineHtml(group.key)}`;
             return parts.length > 1 ? parts[parts.length - 1] : null;
         }
 
-        function decodePoid(encoded) {
-            return encoded.replace(/-5F-/g, '_');
-        }
-
-        // Find all functions (tag value slots) for a given poid
         function getFunctionsForPoid(poid) {
             if (!cachedData || !cachedData.functions) return [];
             const prefix = poid + '-5F-';
             return cachedData.functions.filter(f => f.id && f.id.startsWith(prefix)).map(f => {
                 const suffix = f.id.substring(prefix.length).replace(/-5F-/g, '_');
-                return { suffix: '_' + suffix, value: f.value || '', status: f.status || '' };
+                return { suffix: '_' + suffix, value: f.value || '' };
             });
         }
 
-        // Find the object entry for a poid
         function getObjectForPoid(poid) {
             if (!cachedData || !cachedData.objects) return null;
             return cachedData.objects.find(o => o.poid === poid);
         }
 
-        // Tooltip element
         let tooltip = null;
+        let currentPoid = null;
 
-        function showTooltip(el, poid) {
+        function showTooltip(compEl, poid) {
             hideTooltip();
+            currentPoid = poid;
             const obj = getObjectForPoid(poid);
             const funcs = getFunctionsForPoid(poid);
-            const label = obj ? (obj.text || decodePoid(poid)) : decodePoid(poid);
+            const label = obj ? (obj.text || poid.replace(/-5F-/g, '_')) : poid.replace(/-5F-/g, '_');
 
             tooltip = iDoc.createElement('div');
             tooltip.className = 'inu-diagram-tooltip';
 
             let html = '<div class="inu-dt-header">' + _tplEsc(label) + '</div>';
             if (funcs.length === 0) {
-                html += '<div class="inu-dt-empty">Inga taggvärden tillgängliga</div>';
+                html += '<div class="inu-dt-empty">Inga taggvärden</div>';
             } else {
                 html += '<table class="inu-dt-table"><tbody>';
                 for (const f of funcs) {
@@ -6303,26 +6322,22 @@ ${this.buildTimelineHtml(group.key)}`;
             tooltip.innerHTML = html;
             iDoc.body.appendChild(tooltip);
 
-            // Position near the component
-            const rect = el.closest('.wpCompObject')?.getBoundingClientRect();
-            if (rect) {
-                const iframeRect = iframe.getBoundingClientRect();
-                let left = rect.right + 8;
-                let top = rect.top;
-                // Keep inside viewport
-                const tw = tooltip.offsetWidth;
-                const th = tooltip.offsetHeight;
-                const vw = iframe.contentWindow.innerWidth;
-                const vh = iframe.contentWindow.innerHeight;
-                if (left + tw > vw - 8) left = rect.left - tw - 8;
-                if (top + th > vh - 8) top = Math.max(8, vh - th - 8);
-                tooltip.style.left = left + 'px';
-                tooltip.style.top = top + 'px';
-            }
+            const rect = compEl.getBoundingClientRect();
+            let left = rect.right + 8;
+            let top = rect.top;
+            const tw = tooltip.offsetWidth;
+            const th = tooltip.offsetHeight;
+            const vw = iDoc.defaultView.innerWidth;
+            const vh = iDoc.defaultView.innerHeight;
+            if (left + tw > vw - 8) left = rect.left - tw - 8;
+            if (top + th > vh - 8) top = Math.max(8, vh - th - 8);
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
         }
 
         function hideTooltip() {
             if (tooltip) { tooltip.remove(); tooltip = null; }
+            currentPoid = null;
         }
 
         // Inject tooltip CSS into iframe
@@ -6341,23 +6356,25 @@ ${this.buildTimelineHtml(group.key)}`;
 `;
         iDoc.head.appendChild(style);
 
-        // Attach hover events to all component divs
-        function attachListeners() {
-            const compDivs = wpp.querySelectorAll('.wpCompObject');
-            compDivs.forEach(div => {
-                if (div._inuTTBound) return;
-                div._inuTTBound = true;
-                div.addEventListener('mouseenter', function () {
-                    const poid = extractPoid(this);
-                    if (poid) showTooltip(this, poid);
-                });
-                div.addEventListener('mouseleave', hideTooltip);
-            });
-        }
+        // Event delegation: .wpCompObject has pointer-events:none so direct
+        // mouseenter doesn't fire. Instead listen on iDoc.body for mouseover
+        // events that bubble up from child elements inside the component divs.
+        iDoc.body.addEventListener('mouseover', function (e) {
+            if (!_diagramTooltipEnabled) return;
+            const comp = e.target.closest('.wpCompObject');
+            if (!comp) { if (currentPoid) hideTooltip(); return; }
+            const poid = extractPoid(comp);
+            if (!poid || poid === currentPoid) return;
+            showTooltip(comp, poid);
+        }, true);
 
-        // Attach now and re-attach when new components appear
-        attachListeners();
-        new MutationObserver(() => setTimeout(attachListeners, 200)).observe(wpp, { childList: true, subtree: true });
+        iDoc.body.addEventListener('mouseout', function (e) {
+            const comp = e.target.closest('.wpCompObject');
+            const related = e.relatedTarget?.closest?.('.wpCompObject');
+            if (comp && (!related || related !== comp)) {
+                hideTooltip();
+            }
+        }, true);
 
         console.log(CFG.logPrefix, 'Diagram tooltip active for', pageId, '(' + wpp.querySelectorAll('.wpCompObject').length + ' components)');
     }
