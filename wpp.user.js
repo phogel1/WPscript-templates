@@ -1,14 +1,16 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.03
-// @description  Enhanced UI for Kiona WebPort — tag scaling, alarm/trend management, live commissioning monitor, device IP overview, inline editing, bulk operations, tag duplicator, activity log, page editor with text position controls, server-side position persistence, PID advisor with oscillation detection fix, OP stats, unresponsive controller detection, C1-C4 analysis improvements, Add from Template (IVProdukt Climatix AHU, NIBE SMO S40)
+// @version      7.3.20260416.1058
+// @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
 // @connect      phogel1.github.io
+// @updateURL    https://phogel1.github.io/static-assets/wpp.meta.js
+// @downloadURL  https://phogel1.github.io/static-assets/wpp.user.js
 // ==/UserScript==
 
 (function () {
@@ -23,7 +25,7 @@
     // CONFIG
     // ============================================================
     const CFG = {
-        version: '7.03',
+        version: '7.3',
         logPrefix: '[INU WP+]',
         colOffset: 3,
         pollMs: 1000,
