@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1554
+// @version      7.3.20260416.1557
 // @description  Enhanced UI for Kiona WebPort — start page editor
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6738,6 +6738,13 @@ ${this.buildTimelineHtml(group.key)}`;
 
         const toolbarBody = document.querySelector('.mce-toolbar-grp .mce-toolbar .mce-container-body');
         if (!toolbarBody) return;
+
+        if (!document.getElementById('inu-spe-styles')) {
+            const s = document.createElement('style');
+            s.id = 'inu-spe-styles';
+            s.textContent = `.mo{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:100000;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 0}.mb{background:#fff;border-radius:8px;padding:20px;min-width:540px;max-width:90vw;width:900px;box-shadow:0 8px 32px rgba(0,0,0,.3);margin:auto}.mb h3{margin:0 0 12px;font-size:15px}.mb label{display:block;margin:6px 0 2px;font-size:11px;font-weight:600;color:#555}.mb input,.mb textarea{width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box}.mb .fr{display:flex;gap:8px}.mb .fr>div{flex:1}.mb .bt{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}.mb .bt button{padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600}.mb .bok{padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;background:#5b6abf;color:#fff}.mb .bok:hover{background:#4a58a8}.mb .bx{background:#eee;color:#333}.mb .bx:hover{background:#ddd}`;
+            document.head.appendChild(s);
+        }
 
         const wrap = document.createElement('div');
         wrap.id = 'inu-spe-btn';
