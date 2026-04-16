@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1319
+// @version      7.3.20260416.1327
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -160,10 +160,9 @@
         const pill = document.createElement('span');
         pill.id = 'inu-wp-pill';
         pill.innerHTML = INU_LOGO_SVG + '<span style="margin-left:5px;">WebPort+</span>';
-        pill.style.cssText = 'padding:3px 10px;border-radius:3px;font-size:10px;font-weight:600;color:#fff;background:#1b5e20;user-select:none;cursor:default;align-self:center;display:inline-flex;align-items:center;';
+        pill.style.cssText = 'position:fixed;top:4px;left:8px;z-index:99999;padding:3px 10px;border-radius:3px;font-size:10px;font-weight:600;color:#fff;background:#1b5e20;user-select:none;cursor:default;display:inline-flex;align-items:center;pointer-events:auto;';
         pill.title = 'v' + CFG.version;
-        const nav = topMenu.parentElement;
-        if (nav) nav.insertBefore(pill, nav.firstChild);
+        document.body.appendChild(pill);
     }
 
     function injectStyles() {
@@ -6253,7 +6252,7 @@ ${this.buildTimelineHtml(group.key)}`;
         if (pill && !document.getElementById('inu-dt-toggle')) {
             const btn = document.createElement('span');
             btn.id = 'inu-dt-toggle';
-            btn.style.cssText = 'padding:3px 8px;border-radius:3px;font-size:10px;font-weight:600;cursor:pointer;align-self:center;display:inline-flex;align-items:center;gap:4px;margin-left:4px;user-select:none;';
+            btn.style.cssText = 'position:fixed;top:4px;left:120px;z-index:99999;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;user-select:none;pointer-events:auto;';
             function updateBtn() {
                 btn.style.background = _diagramTooltipEnabled ? '#1565c0' : '#555';
                 btn.style.color = '#fff';
@@ -6267,7 +6266,7 @@ ${this.buildTimelineHtml(group.key)}`;
                 if (!_diagramTooltipEnabled) hideTooltip();
             });
             updateBtn();
-            pill.parentElement.insertBefore(btn, pill.nextSibling);
+            document.body.appendChild(btn);
         }
 
         // Cache for refreshvalues response
@@ -6481,14 +6480,11 @@ ${this.buildTimelineHtml(group.key)}`;
     // ============================================================
     function init() {
         // View-mode diagram pages: skip the polling loop entirely.
-        // ANY DOM access during WebPort's rendering cycle breaks component
-        // positioning. Schedule all our work for 5 seconds later.
+        // The pill and tooltip toggle use position:fixed so they don't
+        // affect layout, but we still defer iframe access briefly.
         if (isContentPage()) {
-            setTimeout(() => {
-                injectBrandPill(); checkSources(); hookToastr(); initLogPanel();
-                initContentPage();
-                initDiagramTooltip();
-            }, 5000);
+            injectBrandPill(); checkSources(); hookToastr(); initLogPanel();
+            setTimeout(() => { initContentPage(); initDiagramTooltip(); }, 2000);
             return;
         }
 
