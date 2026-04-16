@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1223
+// @version      7.3.20260416.1258
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6247,6 +6247,16 @@ ${this.buildTimelineHtml(group.key)}`;
         // If the iframe document is the same one we already initialized, skip.
         // If it changed (SPA navigation), re-initialize for the new page.
         if (_diagramTooltipDoc === iDoc) return;
+
+        // Defer initialization to give WebPort time to finish rendering
+        // components (rotations, SVG symbols, visibility). Without this
+        // delay, our DOM access can race with WebPort's init cycle.
+        if (!iDoc._inuTooltipDeferred) {
+            iDoc._inuTooltipDeferred = true;
+            setTimeout(() => { _diagramTooltipDoc = null; initDiagramTooltip(); }, 3000);
+            return;
+        }
+
         _diagramTooltipDoc = iDoc;
 
         // Restore preference (default OFF)
