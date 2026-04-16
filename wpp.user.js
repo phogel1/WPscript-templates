@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1457
-// @description  Enhanced UI for Kiona WebPort
+// @version      7.3.20260416.1554
+// @description  Enhanced UI for Kiona WebPort — start page editor
 // @match        *://*/*
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -6472,6 +6472,283 @@ ${this.buildTimelineHtml(group.key)}`;
     }
 
     // ============================================================
+    // START PAGE EDITOR
+    // ============================================================
+    function isStartPageEdit() {
+        return location.pathname === '/main/edit';
+    }
+
+    function _spe_parseContent() {
+        const editor = typeof tinymce !== 'undefined' && tinymce.activeEditor;
+        if (!editor) return null;
+        const body = editor.getBody();
+        const h1 = body.querySelector('h1');
+        const h4 = body.querySelector('h4');
+        const anchor = body.querySelector('a.weatherwidget-io');
+        const img = body.querySelector('img');
+
+        const siteName = h1 ? h1.textContent.trim() : '';
+        let street = '', zipCity = '';
+        if (h4) {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = h4.innerHTML;
+            const br = tmp.querySelector('br');
+            if (br) {
+                const before = [], after = [];
+                let found = false;
+                for (const n of tmp.childNodes) {
+                    if (n === br) { found = true; continue; }
+                    (found ? after : before).push(n.textContent || '');
+                }
+                street = before.join('').trim();
+                zipCity = after.join('').trim();
+            } else {
+                street = h4.textContent.trim();
+            }
+        }
+
+        let weatherHref = '', weatherLabel = '';
+        if (anchor) {
+            weatherHref = anchor.getAttribute('href') || '';
+            weatherLabel = anchor.getAttribute('data-label_1') || '';
+        }
+
+        const imageSrc = img ? (img.getAttribute('src') || '') : '';
+
+        return { siteName, street, zipCity, weatherHref, weatherLabel, imageSrc };
+    }
+
+    function _spe_applyContent(vals) {
+        const editor = typeof tinymce !== 'undefined' && tinymce.activeEditor;
+        if (!editor) return;
+        const body = editor.getBody();
+        const h1 = body.querySelector('h1');
+        const h4 = body.querySelector('h4');
+        const anchor = body.querySelector('a.weatherwidget-io');
+        const img = body.querySelector('img');
+
+        if (h1) h1.textContent = vals.siteName;
+        if (h4) h4.innerHTML = vals.street + '<br>' + vals.zipCity;
+        if (anchor) {
+            anchor.setAttribute('href', vals.weatherHref);
+            anchor.setAttribute('data-label_1', vals.weatherLabel);
+            anchor.textContent = vals.weatherLabel + ' Just nu';
+        }
+        if (img && vals.imageSrc) img.setAttribute('src', vals.imageSrc);
+
+        editor.undoManager.add();
+    }
+
+    let _spe_pageid = '';
+
+    async function _spe_getPageId() {
+        if (_spe_pageid) return _spe_pageid;
+        const link = document.querySelector('a[href*="pageid="]');
+        if (link) {
+            const m = link.href.match(/pageid=([^&"']+)/);
+            if (m) { _spe_pageid = m[1]; return _spe_pageid; }
+        }
+        try {
+            const r = await fetch('/page');
+            const html = await r.text();
+            const m = html.match(/pageid=([^&"']+)/);
+            if (m) { _spe_pageid = m[1]; return _spe_pageid; }
+        } catch (e) {}
+        return '';
+    }
+
+    async function _spe_fetchBackgrounds() {
+        try {
+            const pageid = await _spe_getPageId();
+            if (!pageid) return [];
+            const r = await fetch('/page/pageproperties?pageid=' + pageid);
+            const html = await r.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const sel = doc.querySelector('select[name="background"]');
+            if (!sel) return [];
+            return Array.from(sel.options)
+                .filter(o => o.value.startsWith('/system/backgrounds/'))
+                .map(o => ({ path: o.value, name: o.text }));
+        } catch (e) {
+            console.error(CFG.logPrefix, 'Failed to fetch backgrounds:', e);
+            return [];
+        }
+    }
+
+    async function _spe_uploadBackground(file) {
+        const pageid = await _spe_getPageId();
+        if (!pageid) throw new Error('Kunde inte hitta ett pageid för uppladdning');
+        // Snapshot the page's current settings so we can restore after upload
+        const r0 = await fetch('/page/pageproperties?pageid=' + pageid);
+        const html = await r0.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const origForm = doc.querySelector('form[action*="updatepageproperties"]');
+        if (!origForm) throw new Error('Kunde inte läsa sidinställningar');
+        const restoreData = new FormData(origForm);
+
+        // Upload the file (side-effect: temporarily sets it as page bg)
+        const fd = new FormData();
+        fd.append('pageid', pageid);
+        fd.append('background', file);
+        const r1 = await fetch('/page/updatepageproperties', { method: 'POST', body: fd });
+        if (!r1.ok) throw new Error('Uppladdning misslyckades (' + r1.status + ')');
+
+        // Restore original page settings immediately
+        await fetch('/page/updatepageproperties', { method: 'POST', body: restoreData });
+
+        return '/system/backgrounds/' + file.name.toLowerCase();
+    }
+
+    function openStartPageEditor() {
+        const cur = _spe_parseContent();
+        if (!cur) { toastErr('Kunde inte läsa sidinnehållet'); return; }
+
+        const m = modal(`
+<h3><i class="fa fa-home"></i> Redigera startsida</h3>
+<div style="display:flex;gap:16px;margin-bottom:8px;">
+  <div style="flex:1;">
+    <label>Anläggningsnamn</label>
+    <input id="spe-name" value="" placeholder="T.ex. Stora Mossen">
+    <label>Gatuadress</label>
+    <input id="spe-street" value="" placeholder="T.ex. Sobelgränd 4">
+    <label>Postnummer &amp; ort</label>
+    <input id="spe-zip" value="" placeholder="T.ex. 167 58 Bromma">
+  </div>
+  <div style="flex:0 0 180px;text-align:center;">
+    <label>Logotyp / splash</label>
+    <div id="spe-img-preview" style="width:160px;height:100px;border:1px solid #ddd;border-radius:4px;margin:4px auto 6px;display:flex;align-items:center;justify-content:center;background:#fafafa;overflow:hidden;">
+      <span style="color:#aaa;font-size:11px;">Ingen bild</span>
+    </div>
+    <select id="spe-img-select" style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;font-size:11px;color:#222;font-weight:500;">
+      <option value="">Laddar...</option>
+    </select>
+    <input type="file" id="spe-img-upload" accept="image/svg+xml,image/png,image/jpeg" style="display:none;">
+    <button id="spe-img-upload-btn" type="button" style="margin-top:4px;padding:3px 8px;border:1px solid #ccc;border-radius:3px;background:#fff;font-size:10px;cursor:pointer;color:#555;">Ladda upp ny bild...</button>
+  </div>
+</div>
+<hr style="margin:10px 0 8px;border:none;border-top:1px solid #eee;">
+<label>Väderwidget — platsnamn</label>
+<input id="spe-wlabel" value="" placeholder="T.ex. Bromma">
+<label>Väderwidget — URL <a href="https://weatherwidget.io/" target="_blank" rel="noopener" style="font-size:10px;font-weight:400;color:#5b6abf;margin-left:4px;">Skapa på weatherwidget.io ↗</a></label>
+<input id="spe-whref" value="" placeholder="https://forecast7.com/sv/.../">
+<p style="font-size:10px;color:#888;margin:4px 0 0;">Gå till <a href="https://weatherwidget.io/" target="_blank" rel="noopener" style="color:#5b6abf;">weatherwidget.io</a>, välj plats och tema <b>Pure</b>, kopiera URL:en från den genererade koden.</p>
+<div class="bt"><button class="bx" id="spe-cancel">Avbryt</button><button class="bok" id="spe-save"><i class="fa fa-check"></i> Uppdatera</button></div>`);
+
+        m.querySelector('#spe-name').value = cur.siteName;
+        m.querySelector('#spe-street').value = cur.street;
+        m.querySelector('#spe-zip').value = cur.zipCity;
+        m.querySelector('#spe-wlabel').value = cur.weatherLabel;
+        m.querySelector('#spe-whref').value = cur.weatherHref;
+
+        const preview = m.querySelector('#spe-img-preview');
+        const sel = m.querySelector('#spe-img-select');
+        const curSrc = cur.imageSrc;
+
+        function updatePreview(src) {
+            if (src) {
+                let abs = src;
+                if (abs.startsWith('../')) abs = '/' + abs.replace(/^\.\.\//, '');
+                preview.innerHTML = '<img src="' + abs + '" style="max-width:100%;max-height:100%;object-fit:contain;">';
+            } else {
+                preview.innerHTML = '<span style="color:#aaa;font-size:11px;">Ingen bild</span>';
+            }
+        }
+
+        updatePreview(curSrc);
+
+        _spe_fetchBackgrounds().then(bgs => {
+            sel.innerHTML = '<option value="">— Ingen bild —</option>';
+            for (const bg of bgs) {
+                const opt = document.createElement('option');
+                opt.value = bg.path;
+                opt.textContent = bg.name;
+                if (curSrc && (curSrc.includes(bg.name.toLowerCase().replace(/ /g, '%20')) || bg.path.endsWith(curSrc.replace('../', '/')))) {
+                    opt.selected = true;
+                }
+                sel.appendChild(opt);
+            }
+            if (!sel.value && curSrc) {
+                const fname = curSrc.split('/').pop();
+                for (const opt of sel.options) {
+                    if (opt.value.split('/').pop().toLowerCase() === fname.toLowerCase()) {
+                        opt.selected = true;
+                        break;
+                    }
+                }
+            }
+        });
+
+        sel.addEventListener('change', () => updatePreview(sel.value));
+
+        const fileInput = m.querySelector('#spe-img-upload');
+        const uploadBtn = m.querySelector('#spe-img-upload-btn');
+        uploadBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Laddar upp...';
+            try {
+                const path = await _spe_uploadBackground(file);
+                const bgs = await _spe_fetchBackgrounds();
+                sel.innerHTML = '<option value="">— Ingen bild —</option>';
+                for (const bg of bgs) {
+                    const opt = document.createElement('option');
+                    opt.value = bg.path;
+                    opt.textContent = bg.name;
+                    sel.appendChild(opt);
+                }
+                const match = Array.from(sel.options).find(o => o.value.toLowerCase().includes(file.name.toLowerCase()));
+                if (match) match.selected = true;
+                updatePreview(sel.value);
+                toastOk('Bild uppladdad: ' + file.name);
+            } catch (e) {
+                toastErr(e.message || 'Uppladdning misslyckades');
+            }
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = 'Ladda upp ny bild...';
+        });
+
+        m.querySelector('#spe-cancel').addEventListener('click', () => m.remove());
+        m.querySelector('#spe-save').addEventListener('click', () => {
+            let imgSrc = sel.value;
+
+            if (imgSrc && imgSrc.startsWith('/system/')) {
+                imgSrc = '..' + imgSrc;
+            }
+
+            const vals = {
+                siteName: m.querySelector('#spe-name').value.trim(),
+                street: m.querySelector('#spe-street').value.trim(),
+                zipCity: m.querySelector('#spe-zip').value.trim(),
+                weatherLabel: m.querySelector('#spe-wlabel').value.trim(),
+                weatherHref: m.querySelector('#spe-whref').value.trim(),
+                imageSrc: imgSrc
+            };
+            if (!vals.siteName) { toastErr('Ange anläggningsnamn'); return; }
+            _spe_applyContent(vals);
+            m.remove();
+            toastOk('Startsida uppdaterad — spara sidan för att verkställa');
+        });
+    }
+
+    function initStartPageEditor() {
+        if (document.getElementById('inu-spe-btn')) return;
+
+        const toolbarBody = document.querySelector('.mce-toolbar-grp .mce-toolbar .mce-container-body');
+        if (!toolbarBody) return;
+
+        const wrap = document.createElement('div');
+        wrap.id = 'inu-spe-btn';
+        wrap.className = 'mce-widget mce-btn mce-flow-layout-item';
+        wrap.style.cursor = 'pointer';
+        wrap.innerHTML = '<button type="button" style="background:#1b5e20;color:#fff;border:none;border-radius:3px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">✎ Startsida</button>';
+        wrap.addEventListener('click', openStartPageEditor);
+        toolbarBody.appendChild(wrap);
+    }
+
+    // ============================================================
     // INIT
     // ============================================================
     function init() {
@@ -6522,6 +6799,16 @@ ${this.buildTimelineHtml(group.key)}`;
                 // Delay editor init to let WebPort finish rendering
                 // components before we access the iframe DOM.
                 setTimeout(() => { initPageEditor(); initDiagramTooltip(); }, 1500);
+            } else if(isStartPageEdit()){
+                clearInterval(wait);
+                // TinyMCE needs time to initialize before we can inject our button
+                const speWait = setInterval(() => {
+                    if (typeof tinymce !== 'undefined' && tinymce.activeEditor) {
+                        clearInterval(speWait);
+                        initStartPageEditor();
+                    }
+                }, 300);
+                setTimeout(() => clearInterval(speWait), 10000);
             } else if(att>=100) {
                 clearInterval(wait);
             }
