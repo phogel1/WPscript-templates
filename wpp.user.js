@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1327
+// @version      7.3.20260416.1344
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -15,6 +15,12 @@
 
 (function () {
     'use strict';
+
+    // Never run inside an iframe — our script is for the top-level page only.
+    // Tampermonkey's @match *://*/* injects into iframes too, and running
+    // our polling loop + DOM queries inside the iframe disrupts WebPort's
+    // component rendering (rotations, positioning, SVG symbol loading).
+    if (window !== window.top) return;
 
     // Only run on Kiona WebPort pages
     function isWebPort() {
@@ -6479,12 +6485,15 @@ ${this.buildTimelineHtml(group.key)}`;
     // INIT
     // ============================================================
     function init() {
-        // View-mode diagram pages: skip the polling loop entirely.
-        // The pill and tooltip toggle use position:fixed so they don't
-        // affect layout, but we still defer iframe access briefly.
+        // View-mode diagram pages: run NOTHING until WebPort finishes
+        // rendering. Any DOM access — even parent-document — can disrupt
+        // the iframe component positioning.
         if (isContentPage()) {
-            injectBrandPill(); checkSources(); hookToastr(); initLogPanel();
-            setTimeout(() => { initContentPage(); initDiagramTooltip(); }, 2000);
+            setTimeout(() => {
+                injectBrandPill(); hookToastr();
+                initContentPage();
+                initDiagramTooltip();
+            }, 4000);
             return;
         }
 
