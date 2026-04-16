@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1136
+// @version      7.3.20260416.1215
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6229,11 +6229,10 @@ ${this.buildTimelineHtml(group.key)}`;
     // ============================================================
     // DIAGRAM TOOLTIP — hover a symbol to see all related tag values
     // ============================================================
-    let _diagramTooltipActive = false;
+    let _diagramTooltipDoc = null; // tracks which iframe document we initialized for
     let _diagramTooltipEnabled = true;
 
     function initDiagramTooltip() {
-        if (_diagramTooltipActive) return;
         try {
         const iframe = document.querySelector('iframe');
         if (!iframe) return;
@@ -6243,6 +6242,11 @@ ${this.buildTimelineHtml(group.key)}`;
         if (!wpp) return;
         const pageId = new URLSearchParams(location.search).get('pageid');
         if (!pageId) return;
+
+        // If the iframe document is the same one we already initialized, skip.
+        // If it changed (SPA navigation), re-initialize for the new page.
+        if (_diagramTooltipDoc === iDoc) return;
+        _diagramTooltipDoc = iDoc;
 
         // Restore preference (default OFF)
         try { _diagramTooltipEnabled = GM_getValue('inu_diagram_tooltip', false); } catch (e) {}
@@ -6443,8 +6447,35 @@ ${this.buildTimelineHtml(group.key)}`;
             }
         }, true);
 
-        _diagramTooltipActive = true;
+        // Fix missing rotations — WebPort sometimes fails to apply them during
+        // initial rendering (race condition with our script's DOM modifications).
+        // Parse r0/r90/r180/r270 from the SVG class and apply the transform.
+        wpp.querySelectorAll('.wpCompObject').forEach(comp => {
+            const img = comp.querySelector('.wpCompImage');
+            const svg = img?.querySelector('svg');
+            if (!img || !svg) return;
+            const cls = svg.getAttribute('class') || '';
+            const rotMatch = cls.match(/\br(\d+)\b/);
+            if (!rotMatch) return;
+            const deg = parseInt(rotMatch[1]);
+            if (deg === 0) return;
+            if (img.style.transform && img.style.transform.includes('rotate')) return;
+            const existing = img.style.transform || '';
+            img.style.transform = existing + (existing ? ' ' : '') + 'rotate(' + deg + 'deg)';
+        });
+
         console.log(CFG.logPrefix, 'Diagram tooltip active for', pageId, '(' + wpp.querySelectorAll('.wpCompObject').length + ' components)');
+
+        // Watch for SPA navigation: if the iframe document changes, reset and
+        // re-initialize. Check every 2 seconds alongside the value refresh.
+        setInterval(() => {
+            const curDoc = iframe.contentDocument || iframe.contentWindow?.document;
+            if (curDoc && curDoc !== _diagramTooltipDoc) {
+                _diagramTooltipDoc = null; // reset so next call re-initializes
+                initDiagramTooltip();
+            }
+        }, 2000);
+
         } catch (e) { console.error(CFG.logPrefix, 'Diagram tooltip init failed:', e); }
     }
 
