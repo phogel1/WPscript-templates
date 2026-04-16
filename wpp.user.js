@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1410
+// @version      7.3.20260416.1457
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6045,9 +6045,7 @@ ${this.buildTimelineHtml(group.key)}`;
             editorBindKeyboard(iDoc);
             // editorInitTooltip disabled — replaced by diagram tooltip (initDiagramTooltip)
             // which shows the same label + all related live tag values in one tooltip.
-            // Call here because the init polling loop is already cleared by the time
-            // the iframe content is ready.
-            initDiagramTooltip();
+            // Called from the delayed setTimeout in init(), not here.
             iframe.contentWindow.focus();
 
             editorUpdateToolbarContext();
@@ -6521,7 +6519,9 @@ ${this.buildTimelineHtml(group.key)}`;
                 initDevicePage();
             } else if(isPageEditorPage()){
                 clearInterval(wait);
-                initPageEditor();
+                // Delay editor init to let WebPort finish rendering
+                // components before we access the iframe DOM.
+                setTimeout(() => { initPageEditor(); initDiagramTooltip(); }, 1500);
             } else if(att>=100) {
                 clearInterval(wait);
             }
