@@ -1,0 +1,304 @@
+{
+  "manufacturer": "Thermia",
+  "model": "Mega / Genesis platform",
+  "category": "Heat pump",
+  "version": "2026-04-15",
+  "source": "protocol_doc-00079973.pdf (Modbus protocol for Mega, Genesis platform v12.00) + 03-AS01-KVP001.csv (INU production export, 13 confirmed tags)",
+  "sourceVersion": "v12.00",
+  "notes": "Covers Thermia Mega and Genesis controller platforms — these share one Modbus protocol. Applies to Thermia ground-source and air-source heat pumps built on either platform (e.g. Atec, Diplomat, Mega, Genesis). 13 tag addresses cross-validated against an INU production CSV (KVP001 deployment); the rest of the addresses come directly from the manufacturer PDF v12.00 De Facto Address column. Does NOT cover: legacy Thermia controllers (Pre-Mega/pre-Genesis platforms — separate protocol); deep refrigerant-cycle diagnostics are gated behind an opt-in feature option to keep the default tag set focused on commissioner-usable values. INU naming convention used: SYS_IN/SYS_UT mean 'into HP' and 'out from HP' (so SYS_IN = system return, SYS_UT = system supply); same for COND and BRINE. CSV-detected scaling bug on compressor OP corrected against PDF (PDF says raw 0..10000 → eng 0..100%, CSV had reversed bounds).",
+  "defaultDevicePrefix": "HP1",
+
+  "tags": {
+    "opmode_pv":         { "name": "{prefix}_STATUS_PV",      "device": "{prefix}", "address": "30001", "datatype": "INT",     "rawmin": 0,     "rawmax": 100,    "engmin": 0,     "engmax": 100,   "unit": "",        "format": "0",    "description": "Aktuellt driftläge",                  "alarmoptions": "", "trendoptions": "es:0" },
+    "opmode_cmd":        { "name": "{prefix}_OPMODE_CMD",     "device": "{prefix}", "address": "40001", "datatype": "INT",     "rawmin": 0,     "rawmax": 100,    "engmin": 0,     "engmax": 100,   "unit": "",        "format": "0",    "description": "Driftläge styrning",                  "alarmoptions": "", "trendoptions": "es:0" },
+    "running_v":         { "name": "{prefix}_STATUS_V",       "device": "{prefix}", "address": "10200", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Driftsvar (kompressorindikering)",    "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "compressor_op":     { "name": "{prefix}_OP",             "device": "{prefix}", "address": "30055", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "%",       "format": "0",    "description": "Effekt i procent (kompressor)",       "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "compressor_rpm":    { "name": "{prefix}_COMP_RPM",       "device": "{prefix}", "address": "30006", "datatype": "INT",     "rawmin": 0,     "rawmax": 12000,  "engmin": 0,     "engmax": 12000, "unit": "rpm",     "format": "0",    "description": "Kompressorvarvtal",                   "alarmoptions": "", "trendoptions": "es:0" },
+    "compressor_gears":  { "name": "{prefix}_COMP_GEARS",     "device": "{prefix}", "address": "30005", "datatype": "INT",     "rawmin": 0,     "rawmax": 100,    "engmin": 0,     "engmax": 100,   "unit": "",        "format": "0",    "description": "Tillgängliga växlar (kompressor)",    "alarmoptions": "", "trendoptions": "es:0" },
+    "compressor_gear":   { "name": "{prefix}_COMP_GEAR",      "device": "{prefix}", "address": "30062", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "",        "format": "0",    "description": "Aktuell växel (kompressor)",          "alarmoptions": "", "trendoptions": "es:0" },
+
+    "sys_supply_pv":     { "name": "{prefix}_SYS_UT_PV",      "device": "{prefix}", "address": "30013", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Temp. system ut (tillopp)",           "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "sys_return_pv":     { "name": "{prefix}_SYS_IN_PV",      "device": "{prefix}", "address": "30028", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Temp. system in (retur)",             "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "sys_calc_sp":       { "name": "{prefix}_SYS_UT_CSP",     "device": "{prefix}", "address": "30019", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Beräknat börvärde framledning",           "alarmoptions": "", "trendoptions": "es:0" },
+    "outdoor_pv":        { "name": "{prefix}_OUTDOOR_PV",     "device": "{prefix}", "address": "30014", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Utetemperatur",                       "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "brine_in_pv":       { "name": "{prefix}_BRINE_IN_PV",    "device": "{prefix}", "address": "30011", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Temp. köldbärare in",                 "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "brine_out_pv":      { "name": "{prefix}_BRINE_UT_PV",    "device": "{prefix}", "address": "30012", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Temp. köldbärare ut",                 "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "cond_in_pv":        { "name": "{prefix}_COND_IN_PV",     "device": "{prefix}", "address": "30009", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Temp. kondensor in",                  "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "cond_out_pv":       { "name": "{prefix}_COND_UT_PV",     "device": "{prefix}", "address": "30010", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Temp. kondensor ut",                  "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "discharge_temp":    { "name": "{prefix}_DISCHARGE_PV",   "device": "{prefix}", "address": "30008", "datatype": "INT",     "rawmin": -5000, "rawmax": 25000,  "engmin": -50,   "engmax": 250,   "unit": "°C",      "format": "0.00", "description": "Temp. hetgasrör (discharge)",         "alarmoptions": "", "trendoptions": "es:0" },
+
+    "al_a":              { "name": "{prefix}_AL",             "device": "{prefix}", "address": "10001", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Summalarm A",                         "alarmoptions": "p:A", "trendoptions": "" },
+    "al_b":              { "name": "{prefix}_AL1",            "device": "{prefix}", "address": "10002", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Summalarm B",                         "alarmoptions": "p:B", "trendoptions": "" },
+    "al_c":              { "name": "{prefix}_AL2",            "device": "{prefix}", "address": "10003", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Summalarm C",                         "alarmoptions": "p:C", "trendoptions": "" },
+    "sum_al":            { "name": "{prefix}_SUM_AL",         "device": "{prefix}", "address": "10067", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Summalarm",                           "alarmoptions": "", "trendoptions": "" },
+    "larm_rst":          { "name": "{prefix}_RESET_CMD",      "device": "{prefix}", "address": "4",     "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Återställ alla larm",                 "alarmoptions": "", "trendoptions": "" },
+
+    "heat_enable":       { "name": "{prefix}_HEAT_ENABLE",    "device": "{prefix}", "address": "10",    "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Aktivera värme",                      "alarmoptions": "", "trendoptions": "" },
+    "dhw_enable":        { "name": "{prefix}_DHW_ENABLE",     "device": "{prefix}", "address": "9",     "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Aktivera tappvarmvatten",             "alarmoptions": "", "trendoptions": "" },
+
+    "al_high_press":     { "name": "{prefix}_HP_AL",          "device": "{prefix}", "address": "10010", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Högtryckspressostat",                 "alarmoptions": "", "trendoptions": "" },
+    "al_low_press":      { "name": "{prefix}_LP_AL",          "device": "{prefix}", "address": "10011", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Lågtryck",                            "alarmoptions": "", "trendoptions": "" },
+    "al_discharge":      { "name": "{prefix}_DISCHARGE_AL",   "device": "{prefix}", "address": "10012", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Hög hetgasrörstemperatur",            "alarmoptions": "", "trendoptions": "" },
+    "al_brine_in_high":  { "name": "{prefix}_BRINE_IN_HAL",   "device": "{prefix}", "address": "10056", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Köldbärare in hög temperatur",        "alarmoptions": "", "trendoptions": "" },
+    "al_brine_in_low":   { "name": "{prefix}_BRINE_IN_LAL",   "device": "{prefix}", "address": "10057", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Köldbärare in låg temperatur",        "alarmoptions": "", "trendoptions": "" },
+    "al_brine_out_low":  { "name": "{prefix}_BRINE_UT_LAL",   "device": "{prefix}", "address": "10058", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Köldbärare ut låg temperatur",        "alarmoptions": "", "trendoptions": "" },
+    "al_brine_delta":    { "name": "{prefix}_BRINE_DELTA_AL", "device": "{prefix}", "address": "10050", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Köldbärare delta utanför intervall",  "alarmoptions": "", "trendoptions": "" },
+    "al_inverter":       { "name": "{prefix}_INVERTER_AL",    "device": "{prefix}", "address": "10024", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Inverter-fel",                        "alarmoptions": "", "trendoptions": "" },
+    "al_phase":          { "name": "{prefix}_PHASE_AL",       "device": "{prefix}", "address": "10023", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Fasdetekteringsfel",                  "alarmoptions": "", "trendoptions": "" },
+    "al_sys_low":        { "name": "{prefix}_SYS_UT_LAL",     "device": "{prefix}", "address": "10025", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "System framledning låg temperatur",   "alarmoptions": "", "trendoptions": "" },
+    "al_outdoor_sensor": { "name": "{prefix}_OUTDOOR_FAULT",  "device": "{prefix}", "address": "10036", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Utetempgivare fel",                   "alarmoptions": "", "trendoptions": "" },
+
+    "cond_pump_speed":   { "name": "{prefix}_COND_PUMP_PV",   "device": "{prefix}", "address": "30040", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "%",       "format": "0",    "description": "Kondensorpump hastighet",             "alarmoptions": "", "trendoptions": "es:0" },
+    "brine_pump_speed":  { "name": "{prefix}_BRINE_PUMP_PV",  "device": "{prefix}", "address": "30045", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "%",       "format": "0",    "description": "Köldbärarpump hastighet",             "alarmoptions": "", "trendoptions": "es:0" },
+
+    "comp_hours":        { "name": "{prefix}_COMP_HOURS",    "device": "{prefix}", "address": "30049", "datatype": "ULONG",   "rawmin": 0,     "rawmax": 999999, "engmin": 0,     "engmax": 999999,"unit": "h",       "format": "0",    "description": "Drifttid kompressor (32-bit MSB+LSB)","alarmoptions": "", "trendoptions": "" },
+    "dhw_hours":         { "name": "{prefix}_DHW_HOURS",     "device": "{prefix}", "address": "30051", "datatype": "ULONG",   "rawmin": 0,     "rawmax": 999999, "engmin": 0,     "engmax": 999999,"unit": "h",       "format": "0",    "description": "Drifttid varmvatten (32-bit MSB+LSB)","alarmoptions": "", "trendoptions": "" },
+    "addheat_hours":     { "name": "{prefix}_ADDHEAT_HOURS", "device": "{prefix}", "address": "30053", "datatype": "ULONG",   "rawmin": 0,     "rawmax": 999999, "engmin": 0,     "engmax": 999999,"unit": "h",       "format": "0",    "description": "Drifttid tillsats (32-bit MSB+LSB)",  "alarmoptions": "", "trendoptions": "" },
+
+    "heat_curve_max":    { "name": "{prefix}_HEAT_CURVE_MAX", "device": "{prefix}", "address": "40004", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Maxbegränsning kurva radiator",       "alarmoptions": "", "trendoptions": "" },
+    "heat_curve_min":    { "name": "{prefix}_HEAT_CURVE_MIN", "device": "{prefix}", "address": "40005", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Minbegränsning kurva radiator",       "alarmoptions": "", "trendoptions": "" },
+    "comfort_wheel":     { "name": "{prefix}_COMFORT_SP",     "device": "{prefix}", "address": "40006", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Komfortinställning",                  "alarmoptions": "", "trendoptions": "es:0" },
+    "heat_curve_y1":     { "name": "{prefix}_HEAT_CURVE_Y1",  "device": "{prefix}", "address": "40007", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Värmekurva Y1 (högsta utetemp)",      "alarmoptions": "", "trendoptions": "" },
+    "heat_curve_y2":     { "name": "{prefix}_HEAT_CURVE_Y2",  "device": "{prefix}", "address": "40008", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Värmekurva Y2",                       "alarmoptions": "", "trendoptions": "" },
+    "heat_curve_y3":     { "name": "{prefix}_HEAT_CURVE_Y3",  "device": "{prefix}", "address": "40009", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Värmekurva Y3",                       "alarmoptions": "", "trendoptions": "" },
+    "heat_curve_y4":     { "name": "{prefix}_HEAT_CURVE_Y4",  "device": "{prefix}", "address": "40010", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Värmekurva Y4",                       "alarmoptions": "", "trendoptions": "" },
+    "heat_curve_y5":     { "name": "{prefix}_HEAT_CURVE_Y5",  "device": "{prefix}", "address": "40011", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Värmekurva Y5",                       "alarmoptions": "", "trendoptions": "" },
+    "heat_curve_y6":     { "name": "{prefix}_HEAT_CURVE_Y6",  "device": "{prefix}", "address": "40012", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Värmekurva Y6",                       "alarmoptions": "", "trendoptions": "" },
+    "heat_curve_y7":     { "name": "{prefix}_HEAT_CURVE_Y7",  "device": "{prefix}", "address": "40013", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Värmekurva Y7 (lägsta utetemp)",      "alarmoptions": "", "trendoptions": "" },
+    "heat_season_stop":  { "name": "{prefix}_HEAT_SEASON_STOP","device": "{prefix}","address": "40017", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Värmesäsong stopptemperatur",         "alarmoptions": "", "trendoptions": "" },
+    "buffer_tank":       { "name": "{prefix}_BUFFER_PV",      "device": "{prefix}", "address": "30042", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Bufferttank temperatur",              "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "buffer_sp":         { "name": "{prefix}_BUFFER_SP",      "device": "{prefix}", "address": "30069", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Bufferttank börvärde",                "alarmoptions": "", "trendoptions": "" },
+
+    "mv1_pos":           { "name": "{prefix}_MV1_OP",            "device": "{prefix}", "address": "30044", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "%",       "format": "0",    "description": "Mix valve 1 position",                "alarmoptions": "", "trendoptions": "es:0" },
+    "mv1_supply":        { "name": "{prefix}_MV1_SUPPLY_PV",     "device": "{prefix}", "address": "30041", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Mix valve 1 framledning temperatur",  "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "mv1_desired":       { "name": "{prefix}_MV1_SUPPLY_CSP",    "device": "{prefix}", "address": "30148", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Mix valve 1 önskad framledningstemp", "alarmoptions": "", "trendoptions": "" },
+    "mv1_al":            { "name": "{prefix}_MV1_SUPPLY_FAULT",  "device": "{prefix}", "address": "10037", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Mix valve 1 givarfel framledning",    "alarmoptions": "", "trendoptions": "" },
+    "mv1_dev_al":        { "name": "{prefix}_MV1_SUPPLY_DEV_AL", "device": "{prefix}", "address": "10061", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Mix valve 1 avvikelse framledning",   "alarmoptions": "", "trendoptions": "" },
+
+    "mv2_pos":           { "name": "{prefix}_MV2_OP",            "device": "{prefix}", "address": "30088", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "%",       "format": "0",    "description": "Mix valve 2 position",                "alarmoptions": "", "trendoptions": "es:0" },
+    "mv2_supply":        { "name": "{prefix}_MV2_SUPPLY_PV",     "device": "{prefix}", "address": "30100", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Mix valve 2 framledning temperatur",  "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "mv2_return":        { "name": "{prefix}_MV2_RETURN_PV",     "device": "{prefix}", "address": "30110", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Mix valve 2 retur temperatur",        "alarmoptions": "", "trendoptions": "" },
+    "mv2_desired":       { "name": "{prefix}_MV2_SUPPLY_CSP",    "device": "{prefix}", "address": "30149", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Mix valve 2 önskad framledningstemp", "alarmoptions": "", "trendoptions": "" },
+    "mv2_al":            { "name": "{prefix}_MV2_SUPPLY_FAULT",  "device": "{prefix}", "address": "10038", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Mix valve 2 givarfel framledning",    "alarmoptions": "", "trendoptions": "" },
+
+    "mv3_pos":           { "name": "{prefix}_MV3_OP",            "device": "{prefix}", "address": "30089", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "%",       "format": "0",    "description": "Mix valve 3 position",                "alarmoptions": "", "trendoptions": "es:0" },
+    "mv3_supply":        { "name": "{prefix}_MV3_SUPPLY_PV",     "device": "{prefix}", "address": "30101", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Mix valve 3 framledning temperatur",  "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "mv3_desired":       { "name": "{prefix}_MV3_SUPPLY_CSP",    "device": "{prefix}", "address": "30150", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Mix valve 3 önskad framledningstemp", "alarmoptions": "", "trendoptions": "" },
+    "mv3_al":            { "name": "{prefix}_MV3_SUPPLY_FAULT",  "device": "{prefix}", "address": "10039", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Mix valve 3 givarfel framledning",    "alarmoptions": "", "trendoptions": "" },
+
+    "mv4_pos":           { "name": "{prefix}_MV4_OP",            "device": "{prefix}", "address": "30090", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "%",       "format": "0",    "description": "Mix valve 4 position",                "alarmoptions": "", "trendoptions": "es:0" },
+    "mv4_supply":        { "name": "{prefix}_MV4_SUPPLY_PV",     "device": "{prefix}", "address": "30102", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Mix valve 4 framledning temperatur",  "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "mv4_al":            { "name": "{prefix}_MV4_SUPPLY_FAULT",  "device": "{prefix}", "address": "10040", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Mix valve 4 givarfel framledning",    "alarmoptions": "", "trendoptions": "" },
+
+    "mv5_pos":           { "name": "{prefix}_MV5_OP",            "device": "{prefix}", "address": "30091", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "%",       "format": "0",    "description": "Mix valve 5 position",                "alarmoptions": "", "trendoptions": "es:0" },
+    "mv5_supply":        { "name": "{prefix}_MV5_SUPPLY_PV",     "device": "{prefix}", "address": "30108", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Mix valve 5 framledning temperatur",  "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "mv5_al":            { "name": "{prefix}_MV5_SUPPLY_FAULT",  "device": "{prefix}", "address": "10041", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Mix valve 5 givarfel framledning",    "alarmoptions": "", "trendoptions": "" },
+
+    "dhw_top":           { "name": "{prefix}_DHW_TOP_PV",     "device": "{prefix}", "address": "30016", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Tappvarmvatten topp",                 "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "dhw_lower":         { "name": "{prefix}_DHW_LOWER_PV",   "device": "{prefix}", "address": "30017", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Tappvarmvatten botten",               "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "dhw_weighted":      { "name": "{prefix}_DHW_WEIGHTED_PV","device": "{prefix}", "address": "30018", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Tappvarmvatten viktat värde",         "alarmoptions": "", "trendoptions": "" },
+    "dhw_valve":         { "name": "{prefix}_DHW_VALVE_OP",   "device": "{prefix}", "address": "30048", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "%",       "format": "0",    "description": "Tappvarmvatten växelventil position", "alarmoptions": "", "trendoptions": "" },
+    "dhw_start_temp":    { "name": "{prefix}_DHW_START_SP",   "device": "{prefix}", "address": "40023", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Tappvarmvatten starttemperatur",      "alarmoptions": "", "trendoptions": "" },
+    "dhw_stop_temp":     { "name": "{prefix}_DHW_STOP_SP",    "device": "{prefix}", "address": "40024", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Tappvarmvatten stopptemperatur",      "alarmoptions": "", "trendoptions": "" },
+    "dhw_top_al":        { "name": "{prefix}_DHW_TOP_FAULT",   "device": "{prefix}", "address": "10088", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Tappvarmvatten topp givarfel",        "alarmoptions": "", "trendoptions": "" },
+    "dhw_lower_al":      { "name": "{prefix}_DHW_LOWER_FAULT", "device": "{prefix}", "address": "10051", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Tappvarmvatten botten givarfel",      "alarmoptions": "", "trendoptions": "" },
+
+    "twc_supply":        { "name": "{prefix}_TWC_SUPPLY_PV",   "device": "{prefix}", "address": "30096", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "TWC (VVC) framledning temperatur",    "alarmoptions": "", "trendoptions": "" },
+    "twc_return":        { "name": "{prefix}_TWC_RETURN_PV",   "device": "{prefix}", "address": "30097", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "TWC (VVC) retur temperatur",          "alarmoptions": "", "trendoptions": "" },
+    "twc_valve":         { "name": "{prefix}_TWC_VALVE_OP",    "device": "{prefix}", "address": "30087", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "%",       "format": "0",    "description": "TWC (VVC) ventil position",           "alarmoptions": "", "trendoptions": "" },
+    "twc_al":            { "name": "{prefix}_TWC_SUPPLY_FAULT","device": "{prefix}", "address": "10046", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "TWC (VVC) givarfel framledning",      "alarmoptions": "", "trendoptions": "" },
+
+    "wcs_return":        { "name": "{prefix}_WCS_RETURN_PV",   "device": "{prefix}", "address": "30098", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "WCS retur temperatur",                "alarmoptions": "", "trendoptions": "" },
+    "wcs_valve":         { "name": "{prefix}_WCS_VALVE_OP",    "device": "{prefix}", "address": "30086", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "%",       "format": "0",    "description": "WCS ventil position",                 "alarmoptions": "", "trendoptions": "" },
+    "wcs_al":            { "name": "{prefix}_WCS_RETURN_FAULT","device": "{prefix}", "address": "10045", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "WCS givarfel retur",                  "alarmoptions": "", "trendoptions": "" },
+
+    "cool_enable":       { "name": "{prefix}_COOL_ENABLE",    "device": "{prefix}", "address": "11",    "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Aktivera aktiv kyla",                 "alarmoptions": "", "trendoptions": "" },
+    "cool_supply_valve": { "name": "{prefix}_COOL_VALVE_OP",  "device": "{prefix}", "address": "30093", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "%",       "format": "0",    "description": "Kyla framledning ventil position",        "alarmoptions": "", "trendoptions": "es:0" },
+    "cool_supply_temp":  { "name": "{prefix}_COOL_SUPPLY_PV", "device": "{prefix}", "address": "30107", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Kyla framledning temperatur",             "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "cool_return_temp":  { "name": "{prefix}_COOL_RETURN_PV", "device": "{prefix}", "address": "30104", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Kyla retur temperatur",               "alarmoptions": "", "trendoptions": "" },
+    "cool_tank_temp":    { "name": "{prefix}_COOL_TANK_PV",   "device": "{prefix}", "address": "30105", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Kyltank temperatur",                  "alarmoptions": "", "trendoptions": "" },
+    "cool_start_sp":     { "name": "{prefix}_COOL_START_SP",  "device": "{prefix}", "address": "40106", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Kyla starttemperatur",                "alarmoptions": "", "trendoptions": "" },
+    "cool_stop_sp":      { "name": "{prefix}_COOL_STOP_SP",   "device": "{prefix}", "address": "40107", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Kyla stopptemperatur",                "alarmoptions": "", "trendoptions": "" },
+    "cool_supply_al":    { "name": "{prefix}_COOL_SUPPLY_FAULT", "device": "{prefix}", "address": "10048", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Kyla framledning givarfel",            "alarmoptions": "", "trendoptions": "" },
+    "passive_cool_enable":{ "name": "{prefix}_PASSIVE_COOL_ENABLE","device":"{prefix}","address": "34", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Aktivera passiv kyla",                "alarmoptions": "", "trendoptions": "" },
+
+    "pool_enable":       { "name": "{prefix}_POOL_ENABLE",    "device": "{prefix}", "address": "29",    "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Aktivera pool",                       "alarmoptions": "", "trendoptions": "" },
+    "pool_supply":       { "name": "{prefix}_POOL_SUPPLY_PV", "device": "{prefix}", "address": "30120", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Pool framledning temperatur",             "alarmoptions": "", "trendoptions": "i:3600, es:0" },
+    "pool_return":       { "name": "{prefix}_POOL_RETURN_PV", "device": "{prefix}", "address": "30121", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Pool retur temperatur",               "alarmoptions": "", "trendoptions": "" },
+    "pool_valve":        { "name": "{prefix}_POOL_VALVE_OP",  "device": "{prefix}", "address": "30095", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "%",       "format": "0",    "description": "Pool ventil position",                "alarmoptions": "", "trendoptions": "" },
+    "pool_charge_sp":    { "name": "{prefix}_POOL_CHARGE_SP", "device": "{prefix}", "address": "40059", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "%",       "format": "0",    "description": "Pool laddningsbörvärde",              "alarmoptions": "", "trendoptions": "" },
+    "pool_al":           { "name": "{prefix}_POOL_RETURN_FAULT", "device": "{prefix}", "address": "10077", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Pool givarfel retur",              "alarmoptions": "", "trendoptions": "" },
+
+    "addheat_ext_enable":{ "name": "{prefix}_ADDHEAT_EXT_ENABLE","device":"{prefix}","address": "6",    "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Aktivera extern tillsatsvärme",       "alarmoptions": "", "trendoptions": "" },
+    "addheat_only":      { "name": "{prefix}_ADDHEAT_ONLY",   "device": "{prefix}", "address": "26",    "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Endast tillsatsvärme (ingen kompr.)", "alarmoptions": "", "trendoptions": "" },
+    "addheat_demand":    { "name": "{prefix}_ADDHEAT_OP",     "device": "{prefix}", "address": "30007", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "%",       "format": "0",    "description": "Tillsatsvärme aktuellt behov",        "alarmoptions": "", "trendoptions": "es:0" },
+    "addheat_start_pid": { "name": "{prefix}_ADDHEAT_START",  "device": "{prefix}", "address": "40076", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "",        "format": "0",    "description": "Tillsatsvärme start (PID-summa)",     "alarmoptions": "", "trendoptions": "" },
+    "addheat_stop_pid":  { "name": "{prefix}_ADDHEAT_STOP",   "device": "{prefix}", "address": "40079", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "",        "format": "0",    "description": "Tillsatsvärme stopp (PID-summa)",     "alarmoptions": "", "trendoptions": "" },
+    "addheat_step":      { "name": "{prefix}_ADDHEAT_STEP",   "device": "{prefix}", "address": "30068", "datatype": "INT",     "rawmin": 0,     "rawmax": 10,     "engmin": 0,     "engmax": 10,    "unit": "",        "format": "0",    "description": "Aktivt steg internt elpatron (Mega S-E)","alarmoptions": "", "trendoptions": "es:0" },
+
+    "em_l1_current":     { "name": "{prefix}_EM_L1_I",        "device": "{prefix}", "address": "30070", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "A",       "format": "0.00", "description": "Elmätare L1 ström",                   "alarmoptions": "", "trendoptions": "es:0" },
+    "em_l2_current":     { "name": "{prefix}_EM_L2_I",        "device": "{prefix}", "address": "30071", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "A",       "format": "0.00", "description": "Elmätare L2 ström",                   "alarmoptions": "", "trendoptions": "es:0" },
+    "em_l3_current":     { "name": "{prefix}_EM_L3_I",        "device": "{prefix}", "address": "30072", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "A",       "format": "0.00", "description": "Elmätare L3 ström",                   "alarmoptions": "", "trendoptions": "es:0" },
+    "em_l1_voltage":     { "name": "{prefix}_EM_L1_V",        "device": "{prefix}", "address": "30073", "datatype": "INT",     "rawmin": 0,     "rawmax": 30000,  "engmin": 0,     "engmax": 300,   "unit": "V",       "format": "0.00", "description": "Elmätare L1 spänning",                "alarmoptions": "", "trendoptions": "" },
+    "em_l2_voltage":     { "name": "{prefix}_EM_L2_V",        "device": "{prefix}", "address": "30074", "datatype": "INT",     "rawmin": 0,     "rawmax": 30000,  "engmin": 0,     "engmax": 300,   "unit": "V",       "format": "0.00", "description": "Elmätare L2 spänning",                "alarmoptions": "", "trendoptions": "" },
+    "em_l3_voltage":     { "name": "{prefix}_EM_L3_V",        "device": "{prefix}", "address": "30075", "datatype": "INT",     "rawmin": 0,     "rawmax": 30000,  "engmin": 0,     "engmax": 300,   "unit": "V",       "format": "0.00", "description": "Elmätare L3 spänning",                "alarmoptions": "", "trendoptions": "" },
+    "em_l1_power":       { "name": "{prefix}_EM_L1_W",        "device": "{prefix}", "address": "30079", "datatype": "INT",     "rawmin": 0,     "rawmax": 32000,  "engmin": 0,     "engmax": 32000, "unit": "W",       "format": "0",    "description": "Elmätare L1 effekt",                  "alarmoptions": "", "trendoptions": "es:0" },
+    "em_l2_power":       { "name": "{prefix}_EM_L2_W",        "device": "{prefix}", "address": "30080", "datatype": "INT",     "rawmin": 0,     "rawmax": 32000,  "engmin": 0,     "engmax": 32000, "unit": "W",       "format": "0",    "description": "Elmätare L2 effekt",                  "alarmoptions": "", "trendoptions": "es:0" },
+    "em_l3_power":       { "name": "{prefix}_EM_L3_W",        "device": "{prefix}", "address": "30081", "datatype": "INT",     "rawmin": 0,     "rawmax": 32000,  "engmin": 0,     "engmax": 32000, "unit": "W",       "format": "0",    "description": "Elmätare L3 effekt",                  "alarmoptions": "", "trendoptions": "es:0" },
+    "em_total":          { "name": "{prefix}_EM_KWH",         "device": "{prefix}", "address": "30082", "datatype": "UINT",    "rawmin": 0,     "rawmax": 65535,  "engmin": 0,     "engmax": 65535, "unit": "kWh",     "format": "0",    "description": "Elmätare räkneverk",                  "alarmoptions": "", "trendoptions": "es:0" },
+
+    "ref_lp":            { "name": "{prefix}_REF_LP",         "device": "{prefix}", "address": "30128", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "bar",     "format": "0.00", "description": "Köldmedia lågtryck",                  "alarmoptions": "", "trendoptions": "es:0" },
+    "ref_hp":            { "name": "{prefix}_REF_HP",         "device": "{prefix}", "address": "30129", "datatype": "INT",     "rawmin": 0,     "rawmax": 10000,  "engmin": 0,     "engmax": 100,   "unit": "bar",     "format": "0.00", "description": "Köldmedia högtryck",                  "alarmoptions": "", "trendoptions": "es:0" },
+    "ref_superheat":     { "name": "{prefix}_REF_SUPERHEAT",  "device": "{prefix}", "address": "30126", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Köldmedia överhettning",              "alarmoptions": "", "trendoptions": "" },
+    "ref_subcooling":    { "name": "{prefix}_REF_SUBCOOLING", "device": "{prefix}", "address": "30127", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Köldmedia underkylning",              "alarmoptions": "", "trendoptions": "" },
+    "ref_dew_hp":        { "name": "{prefix}_REF_DEW_HP",     "device": "{prefix}", "address": "30124", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Köldmedia daggpunkt högtryck",        "alarmoptions": "", "trendoptions": "" },
+    "ref_dew_lp":        { "name": "{prefix}_REF_DEW_LP",     "device": "{prefix}", "address": "30125", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Köldmedia daggpunkt lågtryck",        "alarmoptions": "", "trendoptions": "" },
+    "ref_liquid":        { "name": "{prefix}_REF_LIQUID",     "device": "{prefix}", "address": "30130", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Köldmedia vätskeledning temperatur",  "alarmoptions": "", "trendoptions": "" },
+    "ref_suction":       { "name": "{prefix}_REF_SUCTION",    "device": "{prefix}", "address": "30131", "datatype": "INT",     "rawmin": -5000, "rawmax": 15000,  "engmin": -50,   "engmax": 150,   "unit": "°C",      "format": "0.00", "description": "Köldmedia suggas temperatur",         "alarmoptions": "", "trendoptions": "" },
+
+    "secondary_d_al":    { "name": "{prefix}_SEC_D_AL",       "device": "{prefix}", "address": "10004", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Larm klass D — Genesis sekundär",     "alarmoptions": "p:D", "trendoptions": "" },
+    "secondary_e_al":    { "name": "{prefix}_SEC_E_AL",       "device": "{prefix}", "address": "10005", "datatype": "DIGITAL", "rawmin": 0,     "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Larm klass E — Legacy sekundär",      "alarmoptions": "p:D", "trendoptions": "" },
+    "secondary_genesis_comm":{ "name": "{prefix}_SEC_GEN_COMM_AL","device":"{prefix}","address": "10084", "datatype": "DIGITAL","rawmin": 0,    "rawmax": 1,      "engmin": 0,     "engmax": 1,     "unit": "",        "format": "0",    "description": "Genesis sekundär kommunikationsfel",  "alarmoptions": "", "trendoptions": "" }
+  },
+
+  "base": [
+    "opmode_pv", "opmode_cmd", "running_v",
+    "compressor_op", "compressor_rpm", "compressor_gear",
+    "sys_supply_pv", "sys_return_pv", "sys_calc_sp",
+    "outdoor_pv",
+    "brine_in_pv", "brine_out_pv",
+    "cond_in_pv", "cond_out_pv",
+    "discharge_temp",
+    "al_a", "al_b", "al_c", "sum_al", "larm_rst",
+    "heat_enable", "dhw_enable",
+    "comfort_wheel"
+  ],
+
+  "config": [
+    {
+      "id": "compressor_diag",
+      "type": "multiselect",
+      "label": "Kompressor / pumpdiagnostik",
+      "options": [
+        { "id": "pump_speeds",    "label": "Pumphastigheter (kondensor + köldbärare)", "default": true,  "tags": ["cond_pump_speed", "brine_pump_speed"] },
+        { "id": "comp_gears",     "label": "Tillgängliga växlar (gear count)",         "default": false, "tags": ["compressor_gears"] },
+        { "id": "run_hours",      "label": "Drifttid (kompressor + VV + tillsats, 32-bit)","default": true, "tags": ["comp_hours", "dhw_hours", "addheat_hours"] }
+      ]
+    },
+    {
+      "id": "alarms_extra",
+      "type": "multiselect",
+      "label": "Extra larm (utöver A/B/C summalarm)",
+      "options": [
+        { "id": "press_alarms",   "label": "Hög-/lågtryck + hetgasrör",       "default": true,  "tags": ["al_high_press", "al_low_press", "al_discharge"] },
+        { "id": "brine_alarms",   "label": "Köldbärare temperaturlarm",        "default": true,  "tags": ["al_brine_in_high", "al_brine_in_low", "al_brine_out_low", "al_brine_delta"] },
+        { "id": "elec_alarms",    "label": "Inverter + fasdetektering",        "default": true,  "tags": ["al_inverter", "al_phase"] },
+        { "id": "sensor_alarms",  "label": "Sensorfel (system + utetemp)",     "default": true,  "tags": ["al_sys_low", "al_outdoor_sensor"] }
+      ]
+    },
+    {
+      "id": "heat_curve",
+      "type": "multiselect",
+      "label": "Värmekurva & värmesystem",
+      "options": [
+        { "id": "curve_limits",   "label": "Min/max begränsning kurva (rad)", "default": true,  "tags": ["heat_curve_min", "heat_curve_max"] },
+        { "id": "curve_points",   "label": "7-punkts värmekurva (Y1–Y7)",     "default": false, "tags": ["heat_curve_y1", "heat_curve_y2", "heat_curve_y3", "heat_curve_y4", "heat_curve_y5", "heat_curve_y6", "heat_curve_y7"] },
+        { "id": "season_stop",    "label": "Värmesäsong stopptemperatur",     "default": true,  "tags": ["heat_season_stop"] },
+        { "id": "buffer_tank",    "label": "Bufferttank (PV + börvärde)",     "default": false, "tags": ["buffer_tank", "buffer_sp"] }
+      ]
+    },
+    {
+      "id": "mix_valves",
+      "type": "dropdown",
+      "label": "Antal mix valves",
+      "help": "Mix valve 1 är inbyggd; 2–5 är tillval (EM/EM3 expansionskort).",
+      "default": "0",
+      "options": [
+        { "id": "0", "label": "0 (ingen)",     "tags": [] },
+        { "id": "1", "label": "1 mix valve",   "tags": ["mv1_pos", "mv1_supply", "mv1_desired", "mv1_al", "mv1_dev_al"] },
+        { "id": "2", "label": "2 mix valves",  "tags": ["mv1_pos", "mv1_supply", "mv1_desired", "mv1_al", "mv1_dev_al", "mv2_pos", "mv2_supply", "mv2_return", "mv2_desired", "mv2_al"] },
+        { "id": "3", "label": "3 mix valves",  "tags": ["mv1_pos", "mv1_supply", "mv1_desired", "mv1_al", "mv1_dev_al", "mv2_pos", "mv2_supply", "mv2_return", "mv2_desired", "mv2_al", "mv3_pos", "mv3_supply", "mv3_desired", "mv3_al"] },
+        { "id": "4", "label": "4 mix valves",  "tags": ["mv1_pos", "mv1_supply", "mv1_desired", "mv1_al", "mv1_dev_al", "mv2_pos", "mv2_supply", "mv2_return", "mv2_desired", "mv2_al", "mv3_pos", "mv3_supply", "mv3_desired", "mv3_al", "mv4_pos", "mv4_supply", "mv4_al"] },
+        { "id": "5", "label": "5 mix valves",  "tags": ["mv1_pos", "mv1_supply", "mv1_desired", "mv1_al", "mv1_dev_al", "mv2_pos", "mv2_supply", "mv2_return", "mv2_desired", "mv2_al", "mv3_pos", "mv3_supply", "mv3_desired", "mv3_al", "mv4_pos", "mv4_supply", "mv4_al", "mv5_pos", "mv5_supply", "mv5_al"] }
+      ]
+    },
+    {
+      "id": "dhw",
+      "type": "dropdown",
+      "label": "Tappvarmvatten (DHW)",
+      "default": "basic",
+      "options": [
+        { "id": "none",  "label": "Inget", "tags": [] },
+        { "id": "basic", "label": "Grundläggande (topp/botten/börvärde/växelventil)", "tags": ["dhw_top", "dhw_lower", "dhw_weighted", "dhw_valve", "dhw_start_temp", "dhw_stop_temp", "dhw_top_al", "dhw_lower_al"] },
+        { "id": "twc",   "label": "+ TWC / VVC (varmvattencirkulation)", "tags": ["dhw_top", "dhw_lower", "dhw_weighted", "dhw_valve", "dhw_start_temp", "dhw_stop_temp", "dhw_top_al", "dhw_lower_al", "twc_supply", "twc_return", "twc_valve", "twc_al"] },
+        { "id": "twc_wcs","label":"+ TWC / VVC + WCS (legionellaspolning)","tags": ["dhw_top", "dhw_lower", "dhw_weighted", "dhw_valve", "dhw_start_temp", "dhw_stop_temp", "dhw_top_al", "dhw_lower_al", "twc_supply", "twc_return", "twc_valve", "twc_al", "wcs_return", "wcs_valve", "wcs_al"] }
+      ]
+    },
+    {
+      "id": "cooling",
+      "type": "dropdown",
+      "label": "Kyla",
+      "default": "none",
+      "options": [
+        { "id": "none",    "label": "Ingen", "tags": [] },
+        { "id": "active",  "label": "Aktiv kyla (kompressor + ventil)", "tags": ["cool_enable", "cool_supply_valve", "cool_supply_temp", "cool_return_temp", "cool_tank_temp", "cool_start_sp", "cool_stop_sp", "cool_supply_al"] },
+        { "id": "passive", "label": "Passiv kyla (köldbärare direkt)", "tags": ["passive_cool_enable", "cool_supply_valve", "cool_supply_temp", "cool_return_temp", "cool_supply_al"] }
+      ]
+    },
+    {
+      "id": "pool",
+      "type": "dropdown",
+      "label": "Pool",
+      "default": "none",
+      "options": [
+        { "id": "none",    "label": "Ingen pool", "tags": [] },
+        { "id": "enabled", "label": "Pool aktiv", "tags": ["pool_enable", "pool_supply", "pool_return", "pool_valve", "pool_charge_sp", "pool_al"] }
+      ]
+    },
+    {
+      "id": "addheat",
+      "type": "dropdown",
+      "label": "Tillsatsvärme",
+      "default": "none",
+      "options": [
+        { "id": "none",     "label": "Ingen", "tags": [] },
+        { "id": "external", "label": "Extern (relä-styrd, PID)", "tags": ["addheat_ext_enable", "addheat_only", "addheat_demand", "addheat_start_pid", "addheat_stop_pid"] },
+        { "id": "immersion","label": "Internt elpatron (Mega S-E)", "tags": ["addheat_only", "addheat_demand", "addheat_step"] }
+      ]
+    },
+    {
+      "id": "electric_meter",
+      "type": "multiselect",
+      "label": "Elmätare",
+      "options": [
+        { "id": "currents", "label": "3-fas ström (L1/L2/L3)",           "default": false, "tags": ["em_l1_current", "em_l2_current", "em_l3_current"] },
+        { "id": "voltages", "label": "3-fas spänning (L1/L2/L3)",        "default": false, "tags": ["em_l1_voltage", "em_l2_voltage", "em_l3_voltage"] },
+        { "id": "powers",   "label": "3-fas effekt (L1/L2/L3)",          "default": false, "tags": ["em_l1_power", "em_l2_power", "em_l3_power"] },
+        { "id": "kwh",      "label": "Räkneverk kWh",                    "default": false, "tags": ["em_total"] }
+      ]
+    },
+    {
+      "id": "secondaries",
+      "type": "dropdown",
+      "label": "Sekundära enheter (kaskad)",
+      "default": "single",
+      "options": [
+        { "id": "single",  "label": "Enkel enhet", "tags": [] },
+        { "id": "genesis", "label": "Genesis sekundärer", "tags": ["secondary_d_al", "secondary_genesis_comm"] },
+        { "id": "legacy",  "label": "Legacy sekundärer",  "tags": ["secondary_e_al"] }
+      ]
+    },
+    {
+      "id": "refrigerant",
+      "type": "multiselect",
+      "label": "Köldmediekrets (deep diagnostics)",
+      "help": "Lägg endast till om du behöver djupare felsökning av köldmediakretsen.",
+      "options": [
+        { "id": "pressures", "label": "Lågtryck + högtryck (bar)",                "default": false, "tags": ["ref_lp", "ref_hp"] },
+        { "id": "superheat", "label": "Överhettning + underkylning",               "default": false, "tags": ["ref_superheat", "ref_subcooling"] },
+        { "id": "dewpoints", "label": "Daggpunkt HT/LT",                           "default": false, "tags": ["ref_dew_hp", "ref_dew_lp"] },
+        { "id": "lines",     "label": "Vätskeledning + suggas temperatur",        "default": false, "tags": ["ref_liquid", "ref_suction"] }
+      ]
+    }
+  ]
+}

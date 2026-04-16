@@ -1,0 +1,26 @@
+{
+  "version": "2026-04-16",
+  "manufacturers": [
+    {
+      "id": "ivprodukt",
+      "name": "IVProdukt",
+      "models": [
+        { "id": "climatix-ahu", "name": "Climatix AHU (v4.34)", "file": "ivprodukt/climatix-ahu.json", "category": "AHU" }
+      ]
+    },
+    {
+      "id": "nibe",
+      "name": "NIBE",
+      "models": [
+        { "id": "smo-s40", "name": "SMO S40 (orkestrator)", "file": "nibe/smo-s40.json", "category": "Värmepump" }
+      ]
+    },
+    {
+      "id": "thermia",
+      "name": "Thermia",
+      "models": [
+        { "id": "mega-genesis", "name": "Mega / Genesis platform (v12.00)", "file": "thermia/mega-genesis.json", "category": "Värmepump" }
+      ]
+    }
+  ]
+}

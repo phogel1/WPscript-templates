@@ -1,0 +1,300 @@
+{
+  "manufacturer": "IVProdukt",
+  "model": "Climatix AHU",
+  "category": "AHU",
+  "version": "2026-04-15",
+  "source": "E0007002_LA13_1.csv + LB01 (1).csv (INU production exports, cross-validated across 8 commissioned systems)",
+  "sourceVersion": "Climatix v4.34",
+  "notes": "Empirically derived from real INU deployments — 105 tag suffixes are universal across 8 commissioned systems. Uses INU Swedish naming convention (GT/GP/GM/GQ sensors, TF/FF fans, VVX recovery, VS heat, SV valve, ST damper, CP compressor, FLAKT energy). Addresses cross-validated as identical across all production units.",
+  "defaultDevicePrefix": "AHU1",
+
+  "tags": {
+    "opmode":       { "name": "{prefix}_STATUS_PV1", "device": "{prefix}", "address": "30017",    "datatype": "INT",     "rawmin": 0,    "rawmax": 12,    "engmin": 0,    "engmax": 12,    "unit": "",        "format": "0",    "description": "Driftläge",                         "alarmoptions": "", "trendoptions": "es:0" },
+    "fanstep":      { "name": "{prefix}_STATUS_PV2", "device": "{prefix}", "address": "30018",    "datatype": "INT",     "rawmin": 0,    "rawmax": 3,     "engmin": 0,    "engmax": 3,     "unit": "",        "format": "0",    "description": "Aktuellt fläktsteg",                "alarmoptions": "", "trendoptions": "es:0" },
+    "ctrl_room":    { "name": "{prefix}_STATUS_PV3", "device": "{prefix}", "address": "30001.11", "datatype": "INT",     "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Rumsreglering aktiv",               "alarmoptions": "", "trendoptions": "es:0" },
+    "ctrl_exhaust": { "name": "{prefix}_STATUS_PV4", "device": "{prefix}", "address": "30001.12", "datatype": "INT",     "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Frånluftsreglering aktiv",          "alarmoptions": "", "trendoptions": "es:0" },
+    "ctrl_supply":  { "name": "{prefix}_STATUS_PV5", "device": "{prefix}", "address": "30001.13", "datatype": "INT",     "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Tilluftsreglering aktiv",           "alarmoptions": "", "trendoptions": "es:0" },
+    "bms_tc":       { "name": "{prefix}_BMS_TC",     "device": "{prefix}", "address": "40005",    "datatype": "INT",     "rawmin": 0,    "rawmax": 4,     "engmin": 0,    "engmax": 4,     "unit": "",        "format": "0",    "description": "BMS tidkanal",                      "alarmoptions": "", "trendoptions": "es:0" },
+    "omk":          { "name": "{prefix}_OMK_V",      "device": "{prefix}", "address": "10011",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Omkopplare (0=AUT, 1=AV)",          "alarmoptions": "", "trendoptions": "" },
+    "ot1":          { "name": "{prefix}_OT1_V",      "device": "{prefix}", "address": "10012",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Indikering övertidstimer",          "alarmoptions": "", "trendoptions": "" },
+
+    "danger_al":    { "name": "{prefix}_DANGER_AL",  "device": "{prefix}", "address": "10001",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Larm klass A (Fara)",               "alarmoptions": "", "trendoptions": "" },
+    "crit_al":      { "name": "{prefix}_CRIT_AL",    "device": "{prefix}", "address": "10002",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Larm klass A (Kritiskt)",           "alarmoptions": "", "trendoptions": "" },
+    "low_al":       { "name": "{prefix}_LOW_AL",     "device": "{prefix}", "address": "10003",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Larm klass B (Låg)",                "alarmoptions": "", "trendoptions": "" },
+    "war_al":       { "name": "{prefix}_WAR_AL",     "device": "{prefix}", "address": "10004",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Larm klass C (Varning)",            "alarmoptions": "", "trendoptions": "" },
+    "larm_rst":     { "name": "{prefix}_LARM_RST",   "device": "{prefix}", "address": "1",        "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Larmåterställning",                 "alarmoptions": "", "trendoptions": "" },
+    "fire1_al":     { "name": "{prefix}_FIRE1_AL",   "device": "{prefix}", "address": "10073",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Brandlarm 1",                       "alarmoptions": "", "trendoptions": "" },
+    "fire2_al":     { "name": "{prefix}_FIRE2_AL",   "device": "{prefix}", "address": "10074",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Brandlarm tilluftstemp",            "alarmoptions": "", "trendoptions": "" },
+    "fire3_al":     { "name": "{prefix}_FIRE3_AL",   "device": "{prefix}", "address": "10075",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Brandlarm frånluftstemp",           "alarmoptions": "", "trendoptions": "" },
+
+    "gt1_pv":       { "name": "{prefix}_GT1_PV",     "device": "{prefix}", "address": "30073",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT1 Tilluft mätvärde",              "alarmoptions": "", "trendoptions": "es:0" },
+    "gt1_sp":       { "name": "{prefix}_GT1_SP",     "device": "{prefix}", "address": "40022",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT1 Börvärde",                      "alarmoptions": "", "trendoptions": "es:0" },
+    "gt1_sp2":      { "name": "{prefix}_GT1_SP2",    "device": "{prefix}", "address": "40021",    "datatype": "INT",     "rawmin": 0,    "rawmax": 500,   "engmin": 0,    "engmax": 50,    "unit": "°C",      "format": "0.0",  "description": "GT1 Dödzon temp",                   "alarmoptions": "", "trendoptions": "es:0" },
+    "gt1_sp7":      { "name": "{prefix}_GT1_SP7",    "device": "{prefix}", "address": "40036",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT1 Minbegr tilluft",               "alarmoptions": "", "trendoptions": "es:0" },
+    "gt1_sp8":      { "name": "{prefix}_GT1_SP8",    "device": "{prefix}", "address": "40037",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT1 Maxbegr tilluft",               "alarmoptions": "", "trendoptions": "es:0" },
+    "gt1_csp":      { "name": "{prefix}_GT1_CSP",    "device": "{prefix}", "address": "30106",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT1 Beräknat BV värme",             "alarmoptions": "", "trendoptions": "es:0" },
+    "gt1_csp2":     { "name": "{prefix}_GT1_CSP2",   "device": "{prefix}", "address": "30107",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT1 Beräknat BV kyla",              "alarmoptions": "", "trendoptions": "es:0" },
+    "gt1_al":       { "name": "{prefix}_GT1_AL",     "device": "{prefix}", "address": "10057",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "GT1 Avvikelselarm tilluft",         "alarmoptions": "", "trendoptions": "" },
+    "gt1_fault":    { "name": "{prefix}_GT1_FAULT",  "device": "{prefix}", "address": "10081",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "GT1 Givarfel tilluft",              "alarmoptions": "", "trendoptions": "" },
+
+    "gt2_pv":       { "name": "{prefix}_GT2_PV",     "device": "{prefix}", "address": "30076",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT2 Frånluft mätvärde",             "alarmoptions": "", "trendoptions": "es:0" },
+
+    "gt3_pv":       { "name": "{prefix}_GT3_PV",     "device": "{prefix}", "address": "30072",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT3 Uteluft mätvärde",              "alarmoptions": "", "trendoptions": "es:0" },
+    "gt3_al":       { "name": "{prefix}_GT3_FAULT",  "device": "{prefix}", "address": "10080",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "GT3 Givarfel utetemp",              "alarmoptions": "", "trendoptions": "" },
+
+    "gt4_pv":       { "name": "{prefix}_GT4_PV",     "device": "{prefix}", "address": "30077",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT4 Avluft mätvärde",               "alarmoptions": "", "trendoptions": "es:0" },
+
+    "gt51_pv":      { "name": "{prefix}_GT51_PV",    "device": "{prefix}", "address": "30075",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT51 Rumstemperatur",               "alarmoptions": "", "trendoptions": "es:0" },
+
+    "gt6_pv":       { "name": "{prefix}_GT6_PV",     "device": "{prefix}", "address": "30078",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT6 VVX tilluft efter återvinning", "alarmoptions": "", "trendoptions": "es:0" },
+
+    "gt41_pv":      { "name": "{prefix}_GT41_PV",    "device": "{prefix}", "address": "30082",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT41 Retur värmebatteri",           "alarmoptions": "", "trendoptions": "es:0" },
+
+    "gt8_pv":       { "name": "{prefix}_GT8_PV",     "device": "{prefix}", "address": "30074",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT8 Temperatur värmebatteri",       "alarmoptions": "", "trendoptions": "es:0" },
+    "gt8_sp":       { "name": "{prefix}_GT8_SP",     "device": "{prefix}", "address": "40093",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT8 Börvärde varmhållning",         "alarmoptions": "", "trendoptions": "es:0" },
+    "gt8_all":      { "name": "{prefix}_GT8_ALL",    "device": "{prefix}", "address": "40092",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT8 Frysvakt larmgräns",            "alarmoptions": "", "trendoptions": "es:0" },
+    "gt8_csp":      { "name": "{prefix}_GT8_CSP",    "device": "{prefix}", "address": "30184",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "GT8 Beräknat börvärde varmhållning","alarmoptions": "", "trendoptions": "es:0" },
+    "gt8_p":        { "name": "{prefix}_GT8_P",      "device": "{prefix}", "address": "40219",    "datatype": "INT",     "rawmin": 0,    "rawmax": 10000, "engmin": 0,    "engmax": 100,   "unit": "",        "format": "0.0",  "description": "GT8 P-förstärkning varmhållning",   "alarmoptions": "", "trendoptions": "" },
+    "gt8_i":        { "name": "{prefix}_GT8_I",      "device": "{prefix}", "address": "40220",    "datatype": "UINT",    "rawmin": 0,    "rawmax": 3600,  "engmin": 0,    "engmax": 3600,  "unit": "s",       "format": "0",    "description": "GT8 I-tid varmhållning",            "alarmoptions": "", "trendoptions": "" },
+    "gt8_al":       { "name": "{prefix}_GT8_AL",     "device": "{prefix}", "address": "10082",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "GT8 Utlöst frysvakt",               "alarmoptions": "", "trendoptions": "" },
+
+    "gp1_pv":       { "name": "{prefix}_GP1_PV",     "device": "{prefix}", "address": "30095",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "l/s",     "format": "0",    "description": "GP1 Tilluftflöde mätvärde",         "alarmoptions": "", "trendoptions": "es:0" },
+    "gp1_al":       { "name": "{prefix}_GP1_AL",     "device": "{prefix}", "address": "10029",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "GP1 Flödesvakt",                    "alarmoptions": "", "trendoptions": "" },
+    "gp2_pv":       { "name": "{prefix}_GP2_PV",     "device": "{prefix}", "address": "30096",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "l/s",     "format": "0",    "description": "GP2 Frånluftsflöde mätvärde",       "alarmoptions": "", "trendoptions": "es:0" },
+    "gp2_al":       { "name": "{prefix}_GP2_AL",     "device": "{prefix}", "address": "10032",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "GP2 Flödesvakt",                    "alarmoptions": "", "trendoptions": "" },
+
+    "gp3_pv":       { "name": "{prefix}_GP3_PV",     "device": "{prefix}", "address": "30097",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "Pa",      "format": "0",    "description": "GP3 Tilluftstryck mätvärde",        "alarmoptions": "", "trendoptions": "es:0" },
+    "gp3_csp":      { "name": "{prefix}_GP3_CSP",    "device": "{prefix}", "address": "30112",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "Pa",      "format": "0",    "description": "GP3 Beräknat börvärde",             "alarmoptions": "", "trendoptions": "es:0" },
+    "gp3_sp1":      { "name": "{prefix}_GP3_SP1",    "device": "{prefix}", "address": "40050",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "Pa",      "format": "0",    "description": "GP3 Börvärde steg 1",               "alarmoptions": "", "trendoptions": "es:0" },
+    "gp3_sp2":      { "name": "{prefix}_GP3_SP2",    "device": "{prefix}", "address": "40051",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "Pa",      "format": "0",    "description": "GP3 Börvärde steg 2",               "alarmoptions": "", "trendoptions": "es:0" },
+    "gp3_sp3":      { "name": "{prefix}_GP3_SP3",    "device": "{prefix}", "address": "40052",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "Pa",      "format": "0",    "description": "GP3 Börvärde steg 3",               "alarmoptions": "", "trendoptions": "es:0" },
+    "gp3_al":       { "name": "{prefix}_GP3_AL",     "device": "{prefix}", "address": "10029",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "GP3 Tryckavvikelse",                "alarmoptions": "", "trendoptions": "" },
+
+    "gp4_pv":       { "name": "{prefix}_GP4_PV",     "device": "{prefix}", "address": "30098",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "Pa",      "format": "0",    "description": "GP4 Frånluftstryck mätvärde",       "alarmoptions": "", "trendoptions": "es:0" },
+    "gp4_csp":      { "name": "{prefix}_GP4_CSP",    "device": "{prefix}", "address": "30113",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "Pa",      "format": "0",    "description": "GP4 Beräknat börvärde",             "alarmoptions": "", "trendoptions": "es:0" },
+    "gp4_sp1":      { "name": "{prefix}_GP4_SP1",    "device": "{prefix}", "address": "40054",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "Pa",      "format": "0",    "description": "GP4 Börvärde steg 1",               "alarmoptions": "", "trendoptions": "es:0" },
+    "gp4_sp2":      { "name": "{prefix}_GP4_SP2",    "device": "{prefix}", "address": "40055",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "Pa",      "format": "0",    "description": "GP4 Börvärde steg 2",               "alarmoptions": "", "trendoptions": "es:0" },
+    "gp4_sp3":      { "name": "{prefix}_GP4_SP3",    "device": "{prefix}", "address": "40056",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "Pa",      "format": "0",    "description": "GP4 Börvärde steg 3",               "alarmoptions": "", "trendoptions": "es:0" },
+
+    "gp5_pv":       { "name": "{prefix}_GP5_PV",     "device": "{prefix}", "address": "30148",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 500,   "unit": "Pa",      "format": "0",    "description": "GP5 Tilluftsfilter tryck",          "alarmoptions": "", "trendoptions": "es:0" },
+    "gp5_al":       { "name": "{prefix}_GP5_AL",     "device": "{prefix}", "address": "10129",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "GP5 Filtervakt",                    "alarmoptions": "", "trendoptions": "" },
+    "gp6_pv":       { "name": "{prefix}_GP6_PV",     "device": "{prefix}", "address": "30149",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 500,   "unit": "Pa",      "format": "0",    "description": "GP6 Frånluftsfilter tryck",         "alarmoptions": "", "trendoptions": "es:0" },
+    "gp6_al":       { "name": "{prefix}_GP6_AL",     "device": "{prefix}", "address": "10130",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "GP6 Filtervakt",                    "alarmoptions": "", "trendoptions": "" },
+
+    "gp8_pv":       { "name": "{prefix}_GP8_PV",     "device": "{prefix}", "address": "30130",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "Pa",      "format": "0",    "description": "GP8 Tryck över motströms VVX",      "alarmoptions": "", "trendoptions": "es:0" },
+    "gp8_csp":      { "name": "{prefix}_GP8_CSP",    "device": "{prefix}", "address": "30126",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "Pa",      "format": "0",    "description": "GP8 Beräknat börvärde",             "alarmoptions": "", "trendoptions": "es:0" },
+    "gp8_v":        { "name": "{prefix}_GP8_V",      "device": "{prefix}", "address": "30129",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Avfrostning aktiv",                 "alarmoptions": "", "trendoptions": "" },
+    "gp9_pv":       { "name": "{prefix}_GP9_PV",     "device": "{prefix}", "address": "30140",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "Pa",      "format": "0",    "description": "GP9 Extra tryckgivare",             "alarmoptions": "", "trendoptions": "es:0" },
+
+    "gm1_pv":       { "name": "{prefix}_GM1_PV",     "device": "{prefix}", "address": "30084",    "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%rH",     "format": "0",    "description": "GM1 Uteluftsfukt",                  "alarmoptions": "", "trendoptions": "es:0" },
+    "gm2_pv":       { "name": "{prefix}_GM2_PV",     "device": "{prefix}", "address": "30087",    "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%rH",     "format": "0",    "description": "GM2 Tilluftsfukt",                  "alarmoptions": "", "trendoptions": "es:0" },
+    "gm3_pv":       { "name": "{prefix}_GM3_PV",     "device": "{prefix}", "address": "30090",    "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%rH",     "format": "0",    "description": "GM3 Rum/frånluftsfukt",             "alarmoptions": "", "trendoptions": "es:0" },
+
+    "gq_pv":        { "name": "{prefix}_GQ1_PV",     "device": "{prefix}", "address": "30101",    "datatype": "INT",     "rawmin": 0,    "rawmax": 3000,  "engmin": 0,    "engmax": 3000,  "unit": "ppm",     "format": "0",    "description": "GQ1 CO₂ rum/frånluft",              "alarmoptions": "", "trendoptions": "es:0" },
+
+    "tf1_pv":       { "name": "{prefix}_TF1_PV",     "device": "{prefix}", "address": "30028",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5,     "engmin": 0,    "engmax": 5,     "unit": "",        "format": "0",    "description": "TF1 Tilluftsfläkt steg",            "alarmoptions": "", "trendoptions": "es:0" },
+    "tf1_op":       { "name": "{prefix}_TF1_OP",     "device": "{prefix}", "address": "30029",    "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",       "format": "0",    "description": "TF1 Tilluftsfläkt styrsignal",      "alarmoptions": "", "trendoptions": "es:0" },
+    "tf1_v":        { "name": "{prefix}_TF1_V",      "device": "{prefix}", "address": "30029>1",  "datatype": "INT",     "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "TF1 Driftindikering",               "alarmoptions": "", "trendoptions": "es:0" },
+    "tf1_al":       { "name": "{prefix}_TF1_AL",     "device": "{prefix}", "address": "10027",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "TF1 Driftfel",                      "alarmoptions": "", "trendoptions": "" },
+
+    "ff1_pv":       { "name": "{prefix}_FF1_PV",     "device": "{prefix}", "address": "30030",    "datatype": "INT",     "rawmin": 0,    "rawmax": 5,     "engmin": 0,    "engmax": 5,     "unit": "",        "format": "0",    "description": "FF1 Frånluftsfläkt steg",           "alarmoptions": "", "trendoptions": "es:0" },
+    "ff1_op":       { "name": "{prefix}_FF1_OP",     "device": "{prefix}", "address": "30031",    "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",       "format": "0",    "description": "FF1 Frånluftsfläkt styrsignal",     "alarmoptions": "", "trendoptions": "es:0" },
+    "ff1_v":        { "name": "{prefix}_FF1_V",      "device": "{prefix}", "address": "30031>1",  "datatype": "INT",     "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "FF1 Driftindikering",               "alarmoptions": "", "trendoptions": "es:0" },
+    "ff1_al":       { "name": "{prefix}_FF1_AL",     "device": "{prefix}", "address": "10030",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "FF1 Driftfel",                      "alarmoptions": "", "trendoptions": "" },
+
+    "sfp_pv":       { "name": "{prefix}_SFP_PV",     "device": "{prefix}", "address": "30178",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1000,  "engmin": 0,    "engmax": 10,    "unit": "kW/m3/s", "format": "0.0",  "description": "SFP värde",                         "alarmoptions": "", "trendoptions": "es:0" },
+    "sfp_pv1":      { "name": "{prefix}_SFP_PV1",    "device": "{prefix}", "address": "30601",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1000,  "engmin": 0,    "engmax": 10,    "unit": "kW/m3/s", "format": "0.0",  "description": "SFP medelvärde dag",                "alarmoptions": "", "trendoptions": "es:0" },
+    "sfp_pv2":      { "name": "{prefix}_SFP_PV2",    "device": "{prefix}", "address": "30602",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1000,  "engmin": 0,    "engmax": 10,    "unit": "kW/m3/s", "format": "0.0",  "description": "SFP medelvärde månad",              "alarmoptions": "", "trendoptions": "es:0" },
+    "sfp_pv3":      { "name": "{prefix}_SFP_PV3",    "device": "{prefix}", "address": "30603",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1000,  "engmin": 0,    "engmax": 10,    "unit": "kW/m3/s", "format": "0.0",  "description": "SFP medelvärde föreg månad",        "alarmoptions": "", "trendoptions": "es:0" },
+    "sfp_pv4":      { "name": "{prefix}_SFP_PV4",    "device": "{prefix}", "address": "30604",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1000,  "engmin": 0,    "engmax": 10,    "unit": "kW/m3/s", "format": "0.0",  "description": "SFP medelvärde år",                 "alarmoptions": "", "trendoptions": "es:0" },
+    "sfp_pv5":      { "name": "{prefix}_SFP_PV5",    "device": "{prefix}", "address": "30605",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1000,  "engmin": 0,    "engmax": 10,    "unit": "kW/m3/s", "format": "0.0",  "description": "SFP medelvärde föreg år",           "alarmoptions": "", "trendoptions": "es:0" },
+
+    "st1_op":       { "name": "{prefix}_ST1_OP",     "device": "{prefix}", "address": "30900",    "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",       "format": "0",    "description": "ST1 Tilluftsspjäll position",       "alarmoptions": "", "trendoptions": "es:0" },
+    "st1_v":        { "name": "{prefix}_ST1_V",      "device": "{prefix}", "address": "30025",    "datatype": "UINT",    "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "",        "format": "0",    "description": "ST1 Driftindikering",               "alarmoptions": "", "trendoptions": "es:0" },
+    "st2_op":       { "name": "{prefix}_ST2_OP",     "device": "{prefix}", "address": "30902",    "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",       "format": "0",    "description": "ST2 Frånluftsspjäll position",      "alarmoptions": "", "trendoptions": "es:0" },
+    "st2_v":        { "name": "{prefix}_ST2_V",      "device": "{prefix}", "address": "30026=0", "datatype": "UINT",    "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "",        "format": "0",    "description": "ST2 Driftindikering",               "alarmoptions": "", "trendoptions": "es:0" },
+    "st3_op":       { "name": "{prefix}_ST3_OP",     "device": "{prefix}", "address": "30902",    "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 100,  "engmax": 0,     "unit": "%",       "format": "0",    "description": "ST3 Spjäll position",               "alarmoptions": "", "trendoptions": "es:0" },
+    "st11_v":       { "name": "{prefix}_ST11_V",     "device": "{prefix}", "address": "30693",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "ST11 Zonspjäll",                    "alarmoptions": "", "trendoptions": "es:0" },
+    "st41_op":      { "name": "{prefix}_ST41_OP",    "device": "{prefix}", "address": "30036",    "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",       "format": "0",    "description": "ST41 Position (motströms VVX)",     "alarmoptions": "", "trendoptions": "es:0" },
+    "st41_cmd":     { "name": "{prefix}_ST41_CMD",   "device": "{prefix}", "address": "30036<100","datatype": "INT",     "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "ST41 Manöver",                      "alarmoptions": "", "trendoptions": "" },
+    "st42_op":      { "name": "{prefix}_ST42_OP",    "device": "{prefix}", "address": "30131",    "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",       "format": "0",    "description": "ST42 Position",                     "alarmoptions": "", "trendoptions": "es:0" },
+    "st43_op":      { "name": "{prefix}_ST43_OP",    "device": "{prefix}", "address": "30132",    "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",       "format": "0",    "description": "ST43 Position",                     "alarmoptions": "", "trendoptions": "es:0" },
+
+    "sv1_op":       { "name": "{prefix}_SV1_OP",     "device": "{prefix}", "address": "30040",    "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",       "format": "0",    "description": "SV1 Värmeventil styrsignal",        "alarmoptions": "", "trendoptions": "es:0" },
+    "sv2_op":       { "name": "{prefix}_SV2_OP",     "device": "{prefix}", "address": "30033",    "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",       "format": "0",    "description": "SV2 Kylventil styrsignal",          "alarmoptions": "", "trendoptions": "es:0" },
+
+    "vvx_op":       { "name": "{prefix}_VVX_OP",     "device": "{prefix}", "address": "30036",    "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",       "format": "0",    "description": "VVX styrsignal",                    "alarmoptions": "", "trendoptions": "es:0" },
+    "vvx_pv":       { "name": "{prefix}_VVX_PV",     "device": "{prefix}", "address": "30117",    "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",       "format": "0",    "description": "VVX verkningsgrad",                 "alarmoptions": "", "trendoptions": "es:0" },
+    "vvx_min":      { "name": "{prefix}_VVX_MIN",    "device": "{prefix}", "address": "40302",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1000,  "engmin": 0,    "engmax": 100,   "unit": "%",       "format": "0",    "description": "VVX min utsignal",                  "alarmoptions": "", "trendoptions": "" },
+    "vvx_sp1":      { "name": "{prefix}_VVX_SP1",    "device": "{prefix}", "address": "40310",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "VVX min utetemp återvinning",       "alarmoptions": "", "trendoptions": "" },
+    "vvx_al1":      { "name": "{prefix}_VVX_AL1",    "device": "{prefix}", "address": "10044",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "VVX verkningsgradslarm",            "alarmoptions": "", "trendoptions": "" },
+    "vvx_al2":      { "name": "{prefix}_VVX_AL2",    "device": "{prefix}", "address": "10217",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "VVX larm",                          "alarmoptions": "", "trendoptions": "" },
+    "vvx_al3":      { "name": "{prefix}_VVX_AL3",    "device": "{prefix}", "address": "10218",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "VVX varning",                       "alarmoptions": "", "trendoptions": "" },
+    "vvx_al4":      { "name": "{prefix}_VVX_AL4",    "device": "{prefix}", "address": "10219",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "VVX kommunikationslarm",            "alarmoptions": "", "trendoptions": "" },
+
+    "cp1_v":        { "name": "{prefix}_CP1_V",      "device": "{prefix}", "address": "30041",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "CP1 Driftindikering",               "alarmoptions": "", "trendoptions": "es:0" },
+    "cp1_al":       { "name": "{prefix}_CP1_AL",     "device": "{prefix}", "address": "10045",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "CP1 Driftfel",                      "alarmoptions": "", "trendoptions": "" },
+    "cp2_v":        { "name": "{prefix}_CP2_V",      "device": "{prefix}", "address": "30034",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "CP2 Driftindikering",               "alarmoptions": "", "trendoptions": "es:0" },
+    "cp2_al":       { "name": "{prefix}_CP2_AL",     "device": "{prefix}", "address": "10038",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "CP2 Driftfel",                      "alarmoptions": "", "trendoptions": "" },
+
+    "cr_v":         { "name": "{prefix}_CR_V",       "device": "{prefix}", "address": "30118",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Kylåtervinning aktiv",              "alarmoptions": "", "trendoptions": "es:0" },
+
+    "temp_pv1":     { "name": "{prefix}_TEMP_PV1",   "device": "{prefix}", "address": "30115",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "Aktuell sommarkompensering",        "alarmoptions": "", "trendoptions": "es:0" },
+    "temp_pv2":     { "name": "{prefix}_TEMP_PV2",   "device": "{prefix}", "address": "30116",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "Aktuell vinterkompensering",        "alarmoptions": "", "trendoptions": "es:0" },
+    "temp_sp1":     { "name": "{prefix}_TEMP_SP1",   "device": "{prefix}", "address": "40152",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "Start sommarkompensering",          "alarmoptions": "", "trendoptions": "es:0" },
+    "temp_sp2":     { "name": "{prefix}_TEMP_SP2",   "device": "{prefix}", "address": "40151",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "Stopp sommarkompensering",          "alarmoptions": "", "trendoptions": "es:0" },
+    "temp_sp3":     { "name": "{prefix}_TEMP_SP3",   "device": "{prefix}", "address": "40084",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°K",      "format": "0.0",  "description": "Deltatemp sommarkompensering",      "alarmoptions": "", "trendoptions": "es:0" },
+    "temp_sp4":     { "name": "{prefix}_TEMP_SP4",   "device": "{prefix}", "address": "40154",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "Start vinterkompensering",          "alarmoptions": "", "trendoptions": "es:0" },
+    "temp_sp5":     { "name": "{prefix}_TEMP_SP5",   "device": "{prefix}", "address": "40153",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°C",      "format": "0.0",  "description": "Stopp vinterkompensering",          "alarmoptions": "", "trendoptions": "es:0" },
+    "temp_sp6":     { "name": "{prefix}_TEMP_SP6",   "device": "{prefix}", "address": "40085",    "datatype": "INT",     "rawmin": -500, "rawmax": 1500,  "engmin": -50,  "engmax": 150,   "unit": "°K",      "format": "0.0",  "description": "Deltatemp vinterkompensering",      "alarmoptions": "", "trendoptions": "es:0" },
+
+    "flakt_pv1":    { "name": "{prefix}_FLAKT_PV1",  "device": "{prefix}", "address": "30384",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "kW",    "format": "0.00", "description": "Effekt fläktar",                    "alarmoptions": "", "trendoptions": "es:0" },
+    "flakt_pv2":    { "name": "{prefix}_FLAKT_PV2",  "device": "{prefix}", "address": "30386",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "kWh",   "format": "0",    "description": "Energi fläktar dag",                "alarmoptions": "", "trendoptions": "es:0" },
+    "flakt_pv3":    { "name": "{prefix}_FLAKT_PV3",  "device": "{prefix}", "address": "30388",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "kWh",   "format": "0",    "description": "Energi fläktar månad",              "alarmoptions": "", "trendoptions": "es:0" },
+    "flakt_pv4":    { "name": "{prefix}_FLAKT_PV4",  "device": "{prefix}", "address": "30390",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "MWh",   "format": "0.00", "description": "Energi fläktar år",                 "alarmoptions": "", "trendoptions": "es:0" },
+    "flakt_pv5":    { "name": "{prefix}_FLAKT_PV5",  "device": "{prefix}", "address": "30392",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "MWh",   "format": "0.00", "description": "Energi fläktar föreg år",           "alarmoptions": "", "trendoptions": "es:0" },
+    "flakt_pv6":    { "name": "{prefix}_FLAKT_PV6",  "device": "{prefix}", "address": "30396",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "kWh",   "format": "0",    "description": "Energi fläktar föreg månad",        "alarmoptions": "", "trendoptions": "es:0" },
+
+    "vs_pv1":       { "name": "{prefix}_VS_PV1",     "device": "{prefix}", "address": "30370",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "kW",    "format": "0.00", "description": "Effekt värme",                      "alarmoptions": "", "trendoptions": "es:0" },
+    "vs_pv2":       { "name": "{prefix}_VS_PV2",     "device": "{prefix}", "address": "30372",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "kWh",   "format": "0",    "description": "Energi värme dag",                  "alarmoptions": "", "trendoptions": "es:0" },
+    "vs_pv3":       { "name": "{prefix}_VS_PV3",     "device": "{prefix}", "address": "30374",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "kWh",   "format": "0",    "description": "Energi värme månad",                "alarmoptions": "", "trendoptions": "es:0" },
+    "vs_pv4":       { "name": "{prefix}_VS_PV4",     "device": "{prefix}", "address": "30376",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "MWh",   "format": "0.00", "description": "Energi värme år",                   "alarmoptions": "", "trendoptions": "es:0" },
+    "vs_pv5":       { "name": "{prefix}_VS_PV5",     "device": "{prefix}", "address": "30378",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "MWh",   "format": "0.00", "description": "Energi värme föreg år",             "alarmoptions": "", "trendoptions": "es:0" },
+    "vs_pv6":       { "name": "{prefix}_VS_PV6",     "device": "{prefix}", "address": "30382",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "kWh",   "format": "0",    "description": "Energi värme föreg månad",          "alarmoptions": "", "trendoptions": "es:0" },
+
+    "vvx_energy1":  { "name": "{prefix}_VVX_PV1",    "device": "{prefix}", "address": "30356",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "kW",    "format": "0.00", "description": "Effekt värmeåtervinning",           "alarmoptions": "", "trendoptions": "es:0" },
+    "vvx_energy3":  { "name": "{prefix}_VVX_PV3",    "device": "{prefix}", "address": "30360",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "kWh",   "format": "0",    "description": "Energi återvinning månad",          "alarmoptions": "", "trendoptions": "es:0" },
+    "vvx_energy4":  { "name": "{prefix}_VVX_PV4",    "device": "{prefix}", "address": "30362",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "MWh",   "format": "0.00", "description": "Energi återvinning år",             "alarmoptions": "", "trendoptions": "es:0" },
+    "vvx_energy5":  { "name": "{prefix}_VVX_PV5",    "device": "{prefix}", "address": "30364",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "MWh",   "format": "0.00", "description": "Energi återvinning föreg år",       "alarmoptions": "", "trendoptions": "es:0" },
+    "vvx_energy6":  { "name": "{prefix}_VVX_PV6",    "device": "{prefix}", "address": "30368",    "datatype": "ULONG",   "rawmin": 0,    "rawmax": 100000000, "engmin": 0, "engmax": 1000000, "unit": "kWh",   "format": "0",    "description": "Energi återvinning föreg månad",    "alarmoptions": "", "trendoptions": "es:0" }
+  },
+
+  "base": [
+    "opmode", "fanstep", "bms_tc", "omk", "ot1",
+    "danger_al", "crit_al", "low_al", "war_al", "larm_rst",
+    "fire1_al",
+    "gt1_pv", "gt1_al", "gt1_fault", "gt1_sp", "gt1_csp",
+    "gt3_pv", "gt3_al",
+    "gt4_pv",
+    "tf1_pv", "tf1_op", "tf1_v", "tf1_al",
+    "ff1_pv", "ff1_op", "ff1_v", "ff1_al",
+    "st1_op", "st2_op",
+    "vvx_op", "vvx_pv",
+    "sfp_pv"
+  ],
+
+  "config": [
+    {
+      "id": "temp_sensors",
+      "type": "multiselect",
+      "label": "Temperaturgivare (extra)",
+      "help": "GT1/GT3/GT4 ingår alltid. Markera övriga som finns på aggregatet.",
+      "options": [
+        { "id": "gt2",       "label": "GT2 Frånluft",                   "default": true,  "tags": ["gt2_pv"] },
+        { "id": "gt51",      "label": "GT51 Rumstemperatur",            "default": false, "tags": ["gt51_pv"] },
+        { "id": "gt6",       "label": "GT6 VVX tilluft (efter VVX)",    "default": false, "tags": ["gt6_pv"] },
+        { "id": "gt41",      "label": "GT41 Retur värmebatteri",        "default": false, "tags": ["gt41_pv"] },
+        { "id": "gt8_frost", "label": "GT8 Frysvakt (paket PV/AL/SP/P/I)", "default": true, "tags": ["gt8_pv", "gt8_al", "gt8_all", "gt8_sp", "gt8_csp", "gt8_p", "gt8_i"] },
+        { "id": "gt1_adv",   "label": "GT1 Avancerat (dödzon, kyla-BV)", "default": false, "tags": ["gt1_sp2", "gt1_csp2", "gt1_sp7", "gt1_sp8"] }
+      ]
+    },
+    {
+      "id": "pressure_flow",
+      "type": "multiselect",
+      "label": "Tryck- och flödesgivare",
+      "options": [
+        { "id": "gp1",      "label": "GP1 Tilluftsfilter (flödesvakt)",   "default": true,  "tags": ["gp1_pv", "gp1_al"] },
+        { "id": "gp2",      "label": "GP2 Frånluftsfilter (flödesvakt)",  "default": true,  "tags": ["gp2_pv", "gp2_al"] },
+        { "id": "gp3",      "label": "GP3 Tilluftstryck + 3 steg",        "default": true,  "tags": ["gp3_pv", "gp3_csp", "gp3_sp1", "gp3_sp2", "gp3_sp3", "gp3_al"] },
+        { "id": "gp4",      "label": "GP4 Frånluftstryck + 3 steg",       "default": true,  "tags": ["gp4_pv", "gp4_csp", "gp4_sp1", "gp4_sp2", "gp4_sp3"] },
+        { "id": "gp5",      "label": "GP5 Tilluftsfilter (pressensor)",   "default": false, "tags": ["gp5_pv", "gp5_al"] },
+        { "id": "gp6",      "label": "GP6 Frånluftsfilter (pressensor)",  "default": false, "tags": ["gp6_pv", "gp6_al"] },
+        { "id": "gp9",      "label": "GP9 Extra tryckgivare",             "default": false, "tags": ["gp9_pv"] }
+      ]
+    },
+    {
+      "id": "humidity_co2",
+      "type": "multiselect",
+      "label": "Fukt & CO₂",
+      "options": [
+        { "id": "gm1", "label": "GM1 Uteluftsfukt",    "default": false, "tags": ["gm1_pv"] },
+        { "id": "gm2", "label": "GM2 Tilluftsfukt",    "default": false, "tags": ["gm2_pv"] },
+        { "id": "gm3", "label": "GM3 Rum/frånluftsfukt","default": false, "tags": ["gm3_pv"] },
+        { "id": "gq",  "label": "GQ1 CO₂-givare",     "default": false, "tags": ["gq_pv"] }
+      ]
+    },
+    {
+      "id": "recovery",
+      "type": "dropdown",
+      "label": "Värmeåtervinning",
+      "default": "rotary",
+      "options": [
+        { "id": "none",       "label": "Ingen",                      "tags": [] },
+        { "id": "rotary",     "label": "Roterande VVX",              "tags": ["vvx_min", "vvx_sp1", "vvx_al1", "vvx_al2", "vvx_al3", "vvx_al4"] },
+        { "id": "counterflow","label": "Motströms VVX (med avfrostning)","tags": ["vvx_min", "vvx_sp1", "vvx_al1", "vvx_al2", "vvx_al3", "vvx_al4", "gp8_pv", "gp8_csp", "gp8_v", "st41_op", "st41_cmd", "st42_op", "st43_op"] },
+        { "id": "plate",      "label": "Plattvärmeväxlare",          "tags": ["vvx_min", "vvx_al1", "vvx_al2", "vvx_al3"] },
+        { "id": "runaround",  "label": "Vätskekopplad (KB/VB)",      "tags": ["vvx_min", "vvx_al1", "vvx_al2", "vvx_al3", "vvx_al4"] }
+      ]
+    },
+    {
+      "id": "heating",
+      "type": "dropdown",
+      "label": "Värmekälla",
+      "default": "water",
+      "options": [
+        { "id": "none",     "label": "Ingen",       "tags": [] },
+        { "id": "water",    "label": "Vattenvärme", "tags": ["sv1_op"] },
+        { "id": "electric", "label": "Elvärme",     "tags": [] }
+      ]
+    },
+    {
+      "id": "cooling",
+      "type": "dropdown",
+      "label": "Kylkälla",
+      "default": "none",
+      "options": [
+        { "id": "none",     "label": "Ingen",      "tags": [] },
+        { "id": "water",    "label": "Vattenkyla", "tags": ["sv2_op", "cr_v"] },
+        { "id": "dx",       "label": "DX-kyla",    "tags": ["cr_v"] }
+      ]
+    },
+    {
+      "id": "compressors",
+      "type": "dropdown",
+      "label": "Kompressorer",
+      "default": "0",
+      "options": [
+        { "id": "0", "label": "0 (ingen DX)", "tags": [] },
+        { "id": "1", "label": "1 kompressor", "tags": ["cp1_v", "cp1_al"] },
+        { "id": "2", "label": "2 kompressorer","tags": ["cp1_v", "cp1_al", "cp2_v", "cp2_al"] }
+      ]
+    },
+    {
+      "id": "regulator",
+      "type": "dropdown",
+      "label": "Temperaturreglering",
+      "default": "supply",
+      "options": [
+        { "id": "supply",  "label": "Tilluftsreglering",     "tags": ["ctrl_supply"] },
+        { "id": "exhaust", "label": "Frånluftsreglering",    "tags": ["ctrl_exhaust"] },
+        { "id": "room",    "label": "Rumsreglering",         "tags": ["ctrl_room", "gt51_pv"] },
+        { "id": "cascade", "label": "Kaskad (rum → tilluft)","tags": ["ctrl_room", "ctrl_supply", "gt51_pv", "gt1_sp7", "gt1_sp8"] }
+      ]
+    },
+    {
+      "id": "features",
+      "type": "multiselect",
+      "label": "Funktioner",
+      "options": [
+        { "id": "summer_winter",  "label": "Sommar-/vinterkompensering", "default": false, "tags": ["temp_pv1", "temp_pv2", "temp_sp1", "temp_sp2", "temp_sp3", "temp_sp4", "temp_sp5", "temp_sp6"] },
+        { "id": "fire_extra",     "label": "Extra brandlarm (tilluft/frånluft)", "default": false, "tags": ["fire2_al", "fire3_al"] },
+        { "id": "zone_damper",    "label": "Zonspjäll ST11",                    "default": false, "tags": ["st11_v"] },
+        { "id": "extra_dampers",  "label": "Extra spjäll ST1/ST2 driftindik.",  "default": false, "tags": ["st1_v", "st2_v", "st3_op"] },
+        { "id": "sfp_stats",      "label": "SFP statistik (dag/månad/år)",      "default": false, "tags": ["sfp_pv1", "sfp_pv2", "sfp_pv3", "sfp_pv4", "sfp_pv5"] },
+        { "id": "energy_fans",    "label": "Energimätning fläktar",             "default": false, "tags": ["flakt_pv1", "flakt_pv2", "flakt_pv3", "flakt_pv4", "flakt_pv5", "flakt_pv6"] },
+        { "id": "energy_heat",    "label": "Energimätning värme",               "default": false, "tags": ["vs_pv1", "vs_pv2", "vs_pv3", "vs_pv4", "vs_pv5", "vs_pv6"] },
+        { "id": "energy_vvx",     "label": "Energimätning värmeåtervinning",   "default": false, "tags": ["vvx_energy1", "vvx_energy3", "vvx_energy4", "vvx_energy5", "vvx_energy6"] }
+      ]
+    }
+  ]
+}
