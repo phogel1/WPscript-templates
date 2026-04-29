@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260429.1817
+// @version      7.3.20260429.1821
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -366,7 +366,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
 .tpl-hdr h3 { margin:0; font-size:15px; flex:1; }
 .tpl-hdr .tpl-close { background:none; border:none; font-size:18px; cursor:pointer; color:#666; padding:2px 8px; border-radius:4px; }
 .tpl-hdr .tpl-close:hover { background:#f0f0f0; }
-.tpl-pickers { display:grid; grid-template-columns:1.2fr 1.5fr 1fr; gap:10px; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #eee; }
+.tpl-pickers { display:grid; grid-template-columns:1fr 1.3fr 0.9fr 1.2fr; gap:10px; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #eee; }
 .tpl-slaves-row { display:none; grid-template-columns:auto 240px 1fr; gap:12px; align-items:center; margin-bottom:14px; padding:8px 12px; background:#f8f9ff; border:1px solid #e3e6f3; border-radius:6px; }
 .tpl-slaves-row.on { display:grid; }
 .tpl-slaves-row label { font-size:10px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.4px; margin:0; }
@@ -1474,7 +1474,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     // lazy-fetched from TEMPLATE_BASE_URL and cached in GM storage.
     const TEMPLATE_BASE_URL = 'https://phogel1.github.io/static-assets/';
     const TEMPLATE_INDEX = {
-        version: '2026-04-29.3',
+        version: '2026-04-29.4',
         manufacturers: [
             {
                 id: 'ivprodukt', name: 'IVProdukt',
@@ -1558,7 +1558,10 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     // (e.g. moxa-bridged regulators). When tpl.multiSlave is set and slaveIds
     // is non-empty, the resolver emits one tag set per slave, with `{prefix}`
     // expanded to `{prefix}{slave}` and `address` rewritten to `{slave}@{address}`.
-    function resolveTemplate(tpl, answers, prefix, slaveIds) {
+    // `ioDevice` (optional): when set, overrides the resolved `device` field on
+    // every tag — useful when tags share a Modbus master (e.g. Moxa) and the
+    // template's `{prefix}`-substituted device isn't a real WebPort IO-device.
+    function resolveTemplate(tpl, answers, prefix, slaveIds, ioDevice) {
         if (!tpl || !tpl.tags) return [];
         const chosen = new Set(Array.isArray(tpl.base) ? tpl.base : []);
         for (const sec of (tpl.config || [])) {
@@ -1590,6 +1593,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                     if (sid != null && k === 'address' && s) s = sid + '@' + s;
                     resolved[k] = s;
                 }
+                if (ioDevice) resolved.device = ioDevice;
                 resolved._id = (sid != null) ? `${tid}__s${sid}` : tid;
                 out.push(resolved);
             }
@@ -1699,6 +1703,32 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             if (name && addr) map.set(`${device || ''}|${addr}`, name);
         });
         return map;
+    }
+
+    // Unique IO-device names already present in the tag table, with the count
+    // of tags currently using each. Sorted by count descending so the most
+    // populated IO-device is the first option in the dropdown — usually what
+    // the commissioner wants.
+    function _tplExistingIODevices() {
+        const counts = new Map();
+        document.querySelectorAll('#tagtable tbody tr.tag').forEach(r => {
+            const dev = r.cells[C.IO]?.textContent?.trim();
+            if (!dev) return;
+            counts.set(dev, (counts.get(dev) || 0) + 1);
+        });
+        return Array.from(counts.entries())
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .map(([name, count]) => ({ name, count }));
+    }
+
+    // The seed tag's IO-device — the natural default for the dropdown.
+    function _tplSeedIODevice(seedTagName) {
+        if (!seedTagName) return '';
+        for (const r of document.querySelectorAll('#tagtable tbody tr.tag')) {
+            const name = r.cells[C.NAME]?.textContent?.trim();
+            if (name === seedTagName) return r.cells[C.IO]?.textContent?.trim() || '';
+        }
+        return '';
     }
 
     // Types treated as "pick exactly one" (renders as <select>):
@@ -1994,6 +2024,10 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     <label>Enhets-prefix</label>
     <input id="tpl-prefix" placeholder="AHU1 / HP1 / …">
   </div>
+  <div>
+    <label>IO-enhet</label>
+    <select id="tpl-iodev"></select>
+  </div>
 </div>
 <div class="tpl-slaves-row" id="tpl-slaves-row">
   <label>Slav-ID:n</label>
@@ -2027,7 +2061,8 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
 
         const q = s => mb.querySelector(s);
         const mfrSel = q('#tpl-mfr'), modelSel = q('#tpl-model');
-        const prefixInp = q('#tpl-prefix'), statusEl = q('#tpl-status'), cfgEl = q('#tpl-cfg');
+        const prefixInp = q('#tpl-prefix'), ioDevSel = q('#tpl-iodev');
+        const statusEl = q('#tpl-status'), cfgEl = q('#tpl-cfg');
         const slavesRow = q('#tpl-slaves-row'), slavesInp = q('#tpl-slaves'), slavesSummary = q('#tpl-slaves-summary');
         const resWrap = q('#tpl-res-wrap'), resHdr = q('#tpl-res-hdr'), resBody = q('#tpl-res-body'), resCount = q('#tpl-res-count');
         const addBtn = q('#tpl-add'), cancelBtn = q('#tpl-cancel');
@@ -2044,6 +2079,27 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             const o = document.createElement('option');
             o.value = mfr.id; o.textContent = mfr.name;
             mfrSel.appendChild(o);
+        }
+
+        // Populate IO-device dropdown from existing devices in the table.
+        // Default to the seed tag's device — that's almost always what the
+        // commissioner wants when bulk-creating tags for the same physical bus.
+        const ioDevices = _tplExistingIODevices();
+        const seedIoDev = _tplSeedIODevice(seedTag);
+        ioDevSel.innerHTML = '';
+        if (!ioDevices.length) {
+            const o = document.createElement('option');
+            o.value = ''; o.textContent = '(ingen IO-enhet hittad)';
+            ioDevSel.appendChild(o);
+            ioDevSel.disabled = true;
+        } else {
+            for (const d of ioDevices) {
+                const o = document.createElement('option');
+                o.value = d.name;
+                o.textContent = `${d.name} (${d.count})`;
+                ioDevSel.appendChild(o);
+            }
+            ioDevSel.value = seedIoDev || ioDevices[0].name;
         }
 
         let currentTpl = null;
@@ -2096,7 +2152,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         function updatePreview() {
             if (!currentTpl) { resWrap.style.display = 'none'; addBtn.disabled = true; return; }
             const slavesParsed = refreshSlaves();
-            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value, slavesParsed.ids);
+            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value, slavesParsed.ids, ioDevSel.value || null);
             const effective = resolved.filter(t => !uncheckedIds.has(t._id));
             resCount.textContent = effective.length + ' taggar';
             resWrap.style.display = 'block';
@@ -2142,6 +2198,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         modelSel.addEventListener('change', loadModel);
         prefixInp.addEventListener('input', updatePreview);
         slavesInp.addEventListener('input', updatePreview);
+        ioDevSel.addEventListener('change', updatePreview);
         resHdr.addEventListener('click', () => {
             resHdr.classList.toggle('open');
             resBody.classList.toggle('open');
@@ -2152,7 +2209,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         addBtn.addEventListener('click', async () => {
             if (!currentTpl || !seedTag) return;
             const slaveIds = currentTpl.multiSlave ? _tplParseSlaveRange(slavesInp.value).ids : [];
-            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value, slaveIds);
+            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value, slaveIds, ioDevSel.value || null);
             const toCreate = resolved.filter(t => !uncheckedIds.has(t._id));
             if (!toCreate.length) return;
 
