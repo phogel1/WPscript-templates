@@ -1,0 +1,222 @@
+{
+  "manufacturer": "Regin",
+  "model": "Regio Midi RCC-C3DOCS",
+  "category": "FCU",
+  "version": "2026-04-29",
+  "source": "regio_midi_ma30008_en.pdf (Rev. E, 2026-01-13)",
+  "sourceVersion": "Regio Midi application v1.7",
+  "notes": "3-pipe / change-over zone (FCU) controller with built-in CO2 sensor, room temperature sensor, occupancy button and 3 universal outputs (analogue heating/cooling/VAV or thermal actuators, plus EC-fan or forced ventilation). Designed for multi-slave deployment under a Moxa Modbus master (RC1, RC2, ...). Modbus register addressing follows WebPort convention: Discrete inputs = 10000+offset, Coils = 0+offset, Input registers = 30000+offset, Holding registers = 40000+offset (PDF lists 1-based offsets). Models in the Regio Midi family (per PDF Appendix): COVERED here as register-compatible siblings sharing the same Modbus map: RCC-C3DOCS / RCC-C3DOCS-BLACK (built-in CO2, primary target), RCC-C3HCS (built-in CO2 + hidden setpoint, no occupancy button), RC-C3DOC / RC-C3DOC-BLACK (external CO2 input on AI2), RC-C3DFOC (CO2 + EC fan), RC-C3 / RC-C3O / RC-C3H (basic 3-output, no CO2 — set CO2 sensor option to off). NOT COVERED — separate templates needed: RC-CF / RC-CFO / RC-CDFO (3-step fan-coil with DO1-DO3 fan relays — different output map), RC-CT / RC-CTH / RC-CTO / RC-CDTO (3-point increase/decrease valve control on DO1-DO5 — different output topology). The 3-step fan-coil (-CF/-CDFO) and 3-point (-CT/-CDTO) variants have a fundamentally different output configuration (DO1-DO5 instead of UO1-UO3) and warrant their own templates. Param numbering (1.7 only) is read-only via Application tool; the registers below are the canonical Modbus equivalents. multiSlave flag set so the userscript prepends slave id to each address.",
+  "defaultDevicePrefix": "RC",
+  "multiSlave": true,
+
+  "tags": {
+    "room_temp_pv":   { "name": "{prefix}_GT_PV",        "device": "{prefix}", "address": "30011", "datatype": "INT",     "rawmin": 0,    "rawmax": 500,   "engmin": 0,    "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Rumstemperatur",                         "alarmoptions": "", "trendoptions": "es:0" },
+    "room_temp_ext":  { "name": "{prefix}_GT_EXT_PV",    "device": "{prefix}", "address": "30012", "datatype": "INT",     "rawmin": 0,    "rawmax": 500,   "engmin": 0,    "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Rumstemperatur extern givare",           "alarmoptions": "", "trendoptions": "es:0" },
+    "room_temp_int":  { "name": "{prefix}_GT_INT_PV",    "device": "{prefix}", "address": "30013", "datatype": "INT",     "rawmin": 0,    "rawmax": 500,   "engmin": 0,    "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Rumstemperatur intern givare",           "alarmoptions": "", "trendoptions": "es:0" },
+    "room_temp_hal":  { "name": "{prefix}_GT_HAL",       "device": "{prefix}", "address": "10032", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Rumstemperatur högtemperaturlarm",       "alarmoptions": "", "trendoptions": "" },
+    "room_temp_lal":  { "name": "{prefix}_GT_LAL",       "device": "{prefix}", "address": "10033", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Rumstemperatur lågtemperaturlarm",       "alarmoptions": "", "trendoptions": "" },
+    "room_temp_hi_sp":{ "name": "{prefix}_GT_HSP",       "device": "{prefix}", "address": "40088", "datatype": "INT",     "rawmin": 0,    "rawmax": 500,   "engmin": 0,    "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Larmgräns hög rumstemperatur",           "alarmoptions": "", "trendoptions": "" },
+    "room_temp_lo_sp":{ "name": "{prefix}_GT_LSP",       "device": "{prefix}", "address": "40089", "datatype": "INT",     "rawmin": 0,    "rawmax": 500,   "engmin": 0,    "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Larmgräns låg rumstemperatur",           "alarmoptions": "", "trendoptions": "" },
+
+    "co2_pv":         { "name": "{prefix}_GQ_PV",        "device": "{prefix}", "address": "30032", "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "ppm", "format": "0",   "description": "CO₂-halt i rummet",                      "alarmoptions": "", "trendoptions": "es:0" },
+    "co2_hal":        { "name": "{prefix}_GQ_HAL",       "device": "{prefix}", "address": "10041", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "CO₂ högnivålarm",                        "alarmoptions": "", "trendoptions": "" },
+    "co2_hi_sp":      { "name": "{prefix}_GQ_HSP",       "device": "{prefix}", "address": "40312", "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "ppm", "format": "0",   "description": "CO₂ larmgräns",                          "alarmoptions": "", "trendoptions": "" },
+    "co2_sp_low":     { "name": "{prefix}_GQ_SP1",       "device": "{prefix}", "address": "40147", "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "ppm", "format": "0",   "description": "CO₂ börvärde min spjäll (start öppning)", "alarmoptions": "", "trendoptions": "" },
+    "co2_sp_high":    { "name": "{prefix}_GQ_SP2",       "device": "{prefix}", "address": "40148", "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "ppm", "format": "0",   "description": "CO₂ börvärde max spjäll (helt öppet)",   "alarmoptions": "", "trendoptions": "" },
+    "co2_presence_sp":{ "name": "{prefix}_GQ_SP3",       "device": "{prefix}", "address": "40133", "datatype": "INT",     "rawmin": 0,    "rawmax": 5000,  "engmin": 0,    "engmax": 5000,  "unit": "ppm", "format": "0",   "description": "CO₂-nivå för närvarodetektering",        "alarmoptions": "", "trendoptions": "" },
+    "co2_presence_hy":{ "name": "{prefix}_GQ_SP4",       "device": "{prefix}", "address": "40134", "datatype": "INT",     "rawmin": 0,    "rawmax": 2000,  "engmin": 0,    "engmax": 2000,  "unit": "ppm", "format": "0",   "description": "CO₂ hysteres närvarofrånkoppling",       "alarmoptions": "", "trendoptions": "" },
+
+    "supply_air_pv":  { "name": "{prefix}_GT1_PV",       "device": "{prefix}", "address": "30047", "datatype": "INT",     "rawmin": 0,    "rawmax": 500,   "engmin": 0,    "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Tilluftstemperatur (kaskadgivare)",      "alarmoptions": "", "trendoptions": "es:0" },
+    "supply_air_csp": { "name": "{prefix}_GT1_CSP",      "device": "{prefix}", "address": "30049", "datatype": "INT",     "rawmin": 0,    "rawmax": 500,   "engmin": 0,    "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Tilluftstemperatur beräknat börvärde",   "alarmoptions": "", "trendoptions": "es:0" },
+    "supply_air_op":  { "name": "{prefix}_GT1_OP",       "device": "{prefix}", "address": "30048", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "Tilluftsregulator utsignal",             "alarmoptions": "", "trendoptions": "es:0" },
+    "supply_air_max_h":{ "name": "{prefix}_GT1_HSP",     "device": "{prefix}", "address": "40289", "datatype": "INT",     "rawmin": 100,  "rawmax": 500,   "engmin": 10,   "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Tilluft maxbegränsning värme",           "alarmoptions": "", "trendoptions": "" },
+    "supply_air_min_h":{ "name": "{prefix}_GT1_LSP",     "device": "{prefix}", "address": "40290", "datatype": "INT",     "rawmin": 100,  "rawmax": 500,   "engmin": 10,   "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Tilluft minbegränsning värme",           "alarmoptions": "", "trendoptions": "" },
+    "supply_air_max_c":{ "name": "{prefix}_GT1_HSP2",    "device": "{prefix}", "address": "40291", "datatype": "INT",     "rawmin": 100,  "rawmax": 500,   "engmin": 10,   "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Tilluft maxbegränsning kyla",            "alarmoptions": "", "trendoptions": "" },
+    "supply_air_min_c":{ "name": "{prefix}_GT1_LSP2",    "device": "{prefix}", "address": "40292", "datatype": "INT",     "rawmin": 100,  "rawmax": 500,   "engmin": 10,   "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Tilluft minbegränsning kyla",            "alarmoptions": "", "trendoptions": "" },
+    "supply_air_frost":{ "name": "{prefix}_GT1_FRSP",    "device": "{prefix}", "address": "40294", "datatype": "INT",     "rawmin": 0,    "rawmax": 200,   "engmin": 0,    "engmax": 20,    "unit": "°C",  "format": "0.0", "description": "Tilluft frysskyddstemperatur",           "alarmoptions": "", "trendoptions": "" },
+
+    "co_temp_pv":     { "name": "{prefix}_GT2_PV",       "device": "{prefix}", "address": "30014", "datatype": "INT",     "rawmin": 0,    "rawmax": 1000,  "engmin": 0,    "engmax": 100,   "unit": "°C",  "format": "0.0", "description": "Change-over rörtemperatur",              "alarmoptions": "", "trendoptions": "es:0" },
+    "co_state":       { "name": "{prefix}_CO_V",         "device": "{prefix}", "address": "10028", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Change-over status (0=värme, 1=kyla)",   "alarmoptions": "", "trendoptions": "es:0" },
+    "co_diff_heat":   { "name": "{prefix}_CO_SP1",       "device": "{prefix}", "address": "40080", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 10,    "unit": "K",   "format": "0.0", "description": "Change-over diff omslag till kyla",      "alarmoptions": "", "trendoptions": "" },
+    "co_diff_cool":   { "name": "{prefix}_CO_SP2",       "device": "{prefix}", "address": "40081", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 10,    "unit": "K",   "format": "0.0", "description": "Change-over diff omslag till värme",     "alarmoptions": "", "trendoptions": "" },
+
+    "zone2_temp_pv":  { "name": "{prefix}_GT3_PV",       "device": "{prefix}", "address": "30034", "datatype": "INT",     "rawmin": 0,    "rawmax": 500,   "engmin": 0,    "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Extra zon (t.ex. golvvärme) mätvärde",    "alarmoptions": "", "trendoptions": "es:0" },
+    "zone2_op":       { "name": "{prefix}_GT3_OP",       "device": "{prefix}", "address": "30035", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "Extra zon utsignal",                     "alarmoptions": "", "trendoptions": "es:0" },
+    "zone2_sp":       { "name": "{prefix}_GT3_SP",       "device": "{prefix}", "address": "40300", "datatype": "INT",     "rawmin": 0,    "rawmax": 500,   "engmin": 0,    "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Extra zon börvärde",                     "alarmoptions": "", "trendoptions": "" },
+    "zone2_enable":   { "name": "{prefix}_GT3_SP2",      "device": "{prefix}", "address": "40301", "datatype": "INT",     "rawmin": 0,    "rawmax": 5,     "engmin": 0,    "engmax": 5,     "unit": "",    "format": "0",   "description": "Extra zon aktivering (0=Av,1-5=läge)",    "alarmoptions": "", "trendoptions": "" },
+
+    "sp_heat":        { "name": "{prefix}_TEMP_SP1",     "device": "{prefix}", "address": "40068", "datatype": "INT",     "rawmin": 0,    "rawmax": 500,   "engmin": 0,    "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Värme börvärde (Occupied)",              "alarmoptions": "", "trendoptions": "es:0" },
+    "sp_cool":        { "name": "{prefix}_TEMP_SP2",     "device": "{prefix}", "address": "40069", "datatype": "INT",     "rawmin": 0,    "rawmax": 500,   "engmin": 0,    "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Kyla börvärde (Occupied)",               "alarmoptions": "", "trendoptions": "es:0" },
+    "sp_unocc_heat":  { "name": "{prefix}_TEMP_SP3",     "device": "{prefix}", "address": "40071", "datatype": "INT",     "rawmin": 0,    "rawmax": 500,   "engmin": 0,    "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Värme börvärde Unoccupied",              "alarmoptions": "", "trendoptions": "es:0" },
+    "sp_unocc_cool":  { "name": "{prefix}_TEMP_SP4",     "device": "{prefix}", "address": "40072", "datatype": "INT",     "rawmin": 0,    "rawmax": 500,   "engmin": 0,    "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Kyla börvärde Unoccupied",               "alarmoptions": "", "trendoptions": "es:0" },
+    "sp_standby_db":  { "name": "{prefix}_TEMP_SP5",     "device": "{prefix}", "address": "40070", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 10,    "unit": "°C",  "format": "0.0", "description": "Standby dödzon",                         "alarmoptions": "", "trendoptions": "" },
+    "sp_frost":       { "name": "{prefix}_FROST_SP",     "device": "{prefix}", "address": "40073", "datatype": "INT",     "rawmin": 0,    "rawmax": 200,   "engmin": 0,    "engmax": 20,    "unit": "°C",  "format": "0.0", "description": "Frysskyddsbörvärde",                     "alarmoptions": "", "trendoptions": "" },
+    "sp_offset":      { "name": "{prefix}_TEMP_OFFS",    "device": "{prefix}", "address": "40076", "datatype": "INT",     "rawmin": -100, "rawmax": 100,   "engmin": -10,  "engmax": 10,    "unit": "°C",  "format": "0.0", "description": "Börvärdesförskjutning",                  "alarmoptions": "", "trendoptions": "es:0" },
+    "sp_offset_max":  { "name": "{prefix}_TEMP_OFFS_HI", "device": "{prefix}", "address": "40074", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 10,    "unit": "°C",  "format": "0.0", "description": "Max tillåten förskjutning uppåt",        "alarmoptions": "", "trendoptions": "" },
+    "sp_offset_min":  { "name": "{prefix}_TEMP_OFFS_LO", "device": "{prefix}", "address": "40075", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 10,    "unit": "°C",  "format": "0.0", "description": "Max tillåten förskjutning neråt",        "alarmoptions": "", "trendoptions": "" },
+    "sp_active":      { "name": "{prefix}_TEMP_CSP",     "device": "{prefix}", "address": "30020", "datatype": "INT",     "rawmin": 0,    "rawmax": 500,   "engmin": 0,    "engmax": 50,    "unit": "°C",  "format": "0.0", "description": "Aktivt börvärde (regulator)",            "alarmoptions": "", "trendoptions": "es:0" },
+    "pid_pband":      { "name": "{prefix}_TEMP_P",       "device": "{prefix}", "address": "40077", "datatype": "INT",     "rawmin": 0,    "rawmax": 1000,  "engmin": 0,    "engmax": 100,   "unit": "°C",  "format": "0.0", "description": "Rumsregulator P-band",                   "alarmoptions": "", "trendoptions": "" },
+    "pid_itime":      { "name": "{prefix}_TEMP_I",       "device": "{prefix}", "address": "40078", "datatype": "UINT",    "rawmin": 0,    "rawmax": 3600,  "engmin": 0,    "engmax": 3600,  "unit": "s",   "format": "0",   "description": "Rumsregulator I-tid",                    "alarmoptions": "", "trendoptions": "" },
+
+    "unit_state":     { "name": "{prefix}_STATUS_PV1",   "device": "{prefix}", "address": "30007", "datatype": "INT",     "rawmin": 0,    "rawmax": 4,     "engmin": 0,    "engmax": 4,     "unit": "",    "format": "0",   "description": "Driftläge (0=Off,1=Unocc,2=Stby,3=Occ,4=Bypass)", "alarmoptions": "", "trendoptions": "es:0" },
+    "ctrl_state":     { "name": "{prefix}_STATUS_PV2",   "device": "{prefix}", "address": "30008", "datatype": "INT",     "rawmin": 0,    "rawmax": 2,     "engmin": 0,    "engmax": 2,     "unit": "",    "format": "0",   "description": "Regulatortillstånd (0=Off,1=Värme,2=Kyla)", "alarmoptions": "", "trendoptions": "es:0" },
+    "fan_state":      { "name": "{prefix}_STATUS_PV3",   "device": "{prefix}", "address": "30009", "datatype": "INT",     "rawmin": 0,    "rawmax": 3,     "engmin": 0,    "engmax": 3,     "unit": "",    "format": "0",   "description": "Aktuell fläkthastighet (0=Off,1-3=Steg)", "alarmoptions": "", "trendoptions": "es:0" },
+    "fan_switch":     { "name": "{prefix}_STATUS_PV4",   "device": "{prefix}", "address": "30006", "datatype": "INT",     "rawmin": 0,    "rawmax": 4,     "engmin": 0,    "engmax": 4,     "unit": "",    "format": "0",   "description": "Fläktomkopplare (0=Off,1-3=Man,4=Auto)",  "alarmoptions": "", "trendoptions": "es:0" },
+    "presence":       { "name": "{prefix}_STATUS_PV5",   "device": "{prefix}", "address": "10031", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Närvaro detekterad",                     "alarmoptions": "", "trendoptions": "es:0" },
+    "presence_co2":   { "name": "{prefix}_STATUS_PV6",   "device": "{prefix}", "address": "10040", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Närvaro via CO₂",                        "alarmoptions": "", "trendoptions": "es:0" },
+    "bypass_cmd":     { "name": "{prefix}_BYPASS_CMD",   "device": "{prefix}", "address": "1",     "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Forcera Bypass-läge",                    "alarmoptions": "", "trendoptions": "" },
+    "shutdown_cmd":   { "name": "{prefix}_SHUTDOWN_CMD", "device": "{prefix}", "address": "2",     "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Forcera Shutdown-läge",                  "alarmoptions": "", "trendoptions": "" },
+    "remote_state":   { "name": "{prefix}_REMOTE_CMD",   "device": "{prefix}", "address": "40014", "datatype": "INT",     "rawmin": 0,    "rawmax": 5,     "engmin": 0,    "engmax": 5,     "unit": "",    "format": "0",   "description": "Centralstyrning driftläge (0-3, 5=ej aktivt)", "alarmoptions": "", "trendoptions": "" },
+    "preset_state":   { "name": "{prefix}_PRESET_SP",    "device": "{prefix}", "address": "40015", "datatype": "INT",     "rawmin": 0,    "rawmax": 3,     "engmin": 0,    "engmax": 3,     "unit": "",    "format": "0",   "description": "Förvalt driftläge",                      "alarmoptions": "", "trendoptions": "" },
+    "shutdown_state": { "name": "{prefix}_SHUTDOWN_SP",  "device": "{prefix}", "address": "40016", "datatype": "INT",     "rawmin": 0,    "rawmax": 3,     "engmin": 0,    "engmax": 3,     "unit": "",    "format": "0",   "description": "Frånslagsläge (Shutdown)",               "alarmoptions": "", "trendoptions": "" },
+    "bypass_time":    { "name": "{prefix}_BYPASS_SP",    "device": "{prefix}", "address": "40056", "datatype": "INT",     "rawmin": 0,    "rawmax": 600,   "engmin": 0,    "engmax": 600,   "unit": "min", "format": "0",   "description": "Bypass-tid",                             "alarmoptions": "", "trendoptions": "" },
+    "ctrl_mode":      { "name": "{prefix}_CTRLMODE_SP",  "device": "{prefix}", "address": "40018", "datatype": "INT",     "rawmin": 0,    "rawmax": 13,    "engmin": 0,    "engmax": 13,    "unit": "",    "format": "0",   "description": "Reglerläge (0-13, se manual)",           "alarmoptions": "", "trendoptions": "" },
+
+    "heat_op":        { "name": "{prefix}_HEAT_OP",      "device": "{prefix}", "address": "30022", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "Värmeutsignal",                          "alarmoptions": "", "trendoptions": "es:0" },
+    "heat_mode":      { "name": "{prefix}_HEAT_CMD",     "device": "{prefix}", "address": "40003", "datatype": "INT",     "rawmin": 0,    "rawmax": 2,     "engmin": 0,    "engmax": 2,     "unit": "",    "format": "0",   "description": "Värme Manuell/Auto (0=Off,1=Man,2=Auto)", "alarmoptions": "", "trendoptions": "" },
+    "heat_man":       { "name": "{prefix}_HEAT_MAN",     "device": "{prefix}", "address": "40094", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "Värme manuellt värde",                   "alarmoptions": "", "trendoptions": "" },
+    "heat_min":       { "name": "{prefix}_HEAT_LSP",     "device": "{prefix}", "address": "40281", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "Värme min utsignalbegränsning",          "alarmoptions": "", "trendoptions": "" },
+    "heat_pulse":     { "name": "{prefix}_HEAT_V",       "device": "{prefix}", "address": "10021", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Värme termisk PWM-signal aktiv",         "alarmoptions": "", "trendoptions": "" },
+
+    "cool_op":        { "name": "{prefix}_COOL_OP",      "device": "{prefix}", "address": "30023", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "Kylutsignal",                            "alarmoptions": "", "trendoptions": "es:0" },
+    "cool_mode":      { "name": "{prefix}_COOL_CMD",     "device": "{prefix}", "address": "40004", "datatype": "INT",     "rawmin": 0,    "rawmax": 2,     "engmin": 0,    "engmax": 2,     "unit": "",    "format": "0",   "description": "Kyla Manuell/Auto",                      "alarmoptions": "", "trendoptions": "" },
+    "cool_man":       { "name": "{prefix}_COOL_MAN",     "device": "{prefix}", "address": "40095", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "Kyla manuellt värde",                    "alarmoptions": "", "trendoptions": "" },
+    "cool_pulse":     { "name": "{prefix}_COOL_V",       "device": "{prefix}", "address": "10022", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Kyla termisk PWM-signal aktiv",          "alarmoptions": "", "trendoptions": "" },
+
+    "vav_op":         { "name": "{prefix}_VAV_OP",       "device": "{prefix}", "address": "30026", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "VAV/spjäll utsignal (UO3)",              "alarmoptions": "", "trendoptions": "es:0" },
+    "vav_mode":       { "name": "{prefix}_VAV_CMD",      "device": "{prefix}", "address": "40012", "datatype": "INT",     "rawmin": 0,    "rawmax": 2,     "engmin": 0,    "engmax": 2,     "unit": "",    "format": "0",   "description": "VAV/forcerad ventilation Manuell/Auto",  "alarmoptions": "", "trendoptions": "" },
+    "vav_man":        { "name": "{prefix}_VAV_MAN",      "device": "{prefix}", "address": "40093", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "VAV manuellt värde",                     "alarmoptions": "", "trendoptions": "" },
+    "vav_min":        { "name": "{prefix}_VAV_LSP",      "device": "{prefix}", "address": "40086", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "VAV minflöde Occupied",                  "alarmoptions": "", "trendoptions": "" },
+    "vav_max":        { "name": "{prefix}_VAV_HSP",      "device": "{prefix}", "address": "40090", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "VAV maxbegränsning",                     "alarmoptions": "", "trendoptions": "" },
+    "vav_min_stby":   { "name": "{prefix}_VAV_LSP2",     "device": "{prefix}", "address": "40285", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "VAV minflöde Standby",                   "alarmoptions": "", "trendoptions": "" },
+    "vav_min_unocc":  { "name": "{prefix}_VAV_LSP3",     "device": "{prefix}", "address": "40286", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "VAV minflöde Unoccupied",                "alarmoptions": "", "trendoptions": "" },
+    "vav_min_off":    { "name": "{prefix}_VAV_LSP4",     "device": "{prefix}", "address": "40287", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "VAV minflöde Off",                       "alarmoptions": "", "trendoptions": "" },
+    "vav_max_heat":   { "name": "{prefix}_VAV_HSP2",     "device": "{prefix}", "address": "40087", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "VAV maxflöde vid värmebehov",            "alarmoptions": "", "trendoptions": "" },
+    "forced_vent":    { "name": "{prefix}_FVENT_V",      "device": "{prefix}", "address": "10020", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Forcerad ventilation aktiv",             "alarmoptions": "", "trendoptions": "es:0" },
+
+    "ec_fan_min":     { "name": "{prefix}_FAN_LSP",      "device": "{prefix}", "address": "40282", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "EC-fläkt min hastighet",                 "alarmoptions": "", "trendoptions": "" },
+    "ec_fan_max":     { "name": "{prefix}_FAN_HSP",      "device": "{prefix}", "address": "40283", "datatype": "INT",     "rawmin": 0,    "rawmax": 100,   "engmin": 0,    "engmax": 100,   "unit": "%",   "format": "0",   "description": "EC-fläkt max hastighet",                 "alarmoptions": "", "trendoptions": "" },
+    "fan_select":     { "name": "{prefix}_FAN_CMD",      "device": "{prefix}", "address": "40005", "datatype": "INT",     "rawmin": 0,    "rawmax": 4,     "engmin": 0,    "engmax": 4,     "unit": "",    "format": "0",   "description": "Fläktläge val (0=Off, 1-3=Man, 4=Auto)",  "alarmoptions": "", "trendoptions": "" },
+    "fan_ctrl_mode":  { "name": "{prefix}_FAN_SP1",      "device": "{prefix}", "address": "40006", "datatype": "INT",     "rawmin": 0,    "rawmax": 3,     "engmin": 0,    "engmax": 3,     "unit": "",    "format": "0",   "description": "Fläktstyrning (0=Off,1=Värme,2=Kyla,3=Båda)", "alarmoptions": "", "trendoptions": "" },
+    "fan_speed_max":  { "name": "{prefix}_FAN_SP2",      "device": "{prefix}", "address": "40011", "datatype": "INT",     "rawmin": 1,    "rawmax": 3,     "engmin": 1,    "engmax": 3,     "unit": "",    "format": "0",   "description": "Antal fläktsteg",                        "alarmoptions": "", "trendoptions": "" },
+    "fan_boost_time": { "name": "{prefix}_FAN_BOOST_SP", "device": "{prefix}", "address": "40276", "datatype": "INT",     "rawmin": 0,    "rawmax": 600,   "engmin": 0,    "engmax": 600,   "unit": "s",   "format": "0",   "description": "Fläkt boost-tid",                        "alarmoptions": "", "trendoptions": "" },
+
+    "window_al":      { "name": "{prefix}_WINDOW_V",     "device": "{prefix}", "address": "10013", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Fönsterkontakt - öppet fönster",         "alarmoptions": "", "trendoptions": "" },
+    "condense_al":    { "name": "{prefix}_COND_AL",      "device": "{prefix}", "address": "10014", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Kondenslarm",                            "alarmoptions": "", "trendoptions": "" },
+    "run_indication": { "name": "{prefix}_RUN_V",        "device": "{prefix}", "address": "10039", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Driftindikering (DI2 konfigurerad som körsignal)", "alarmoptions": "", "trendoptions": "" },
+    "lighting_v":     { "name": "{prefix}_LIGHT_V",      "device": "{prefix}", "address": "10038", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Belysning aktiv (UO3 konfigurerad)",     "alarmoptions": "", "trendoptions": "" }
+  },
+
+  "base": [
+    "room_temp_pv",
+    "co2_pv",
+    "sp_heat", "sp_cool",
+    "sp_offset", "sp_active",
+    "unit_state", "ctrl_state",
+    "heat_op", "cool_op",
+    "vav_op", "forced_vent",
+    "presence",
+    "bypass_cmd"
+  ],
+
+  "config": [
+    {
+      "id": "ctrl_mode",
+      "type": "dropdown",
+      "label": "Reglerläge",
+      "help": "Hur enheten reglerar värme/kyla/luftflöde. Påverkar vilka utgångar som används.",
+      "default": "heat_cool_vav",
+      "options": [
+        { "id": "heat",            "label": "Värme",                                  "tags": [] },
+        { "id": "cool",            "label": "Kyla",                                   "tags": [] },
+        { "id": "heat_cool",       "label": "Värme + Kyla (4-rörs)",                  "tags": [] },
+        { "id": "changeover",      "label": "Värme/Kyla change-over (2-rörs)",        "tags": ["co_temp_pv", "co_state", "co_diff_heat", "co_diff_cool"] },
+        { "id": "heat_cool_vav",   "label": "Värme + Kyla + VAV (3-rörs/chilled beam)", "tags": ["vav_min", "vav_max", "vav_max_heat", "vav_min_stby", "vav_min_unocc"] },
+        { "id": "heat_vav",        "label": "Värme + VAV",                            "tags": ["vav_min", "vav_max", "vav_max_heat"] },
+        { "id": "vav_only",        "label": "Endast VAV",                             "tags": ["vav_min", "vav_max", "vav_min_stby", "vav_min_unocc", "vav_min_off"] },
+        { "id": "co_vav",          "label": "Change-over + VAV",                      "tags": ["co_temp_pv", "co_state", "co_diff_heat", "co_diff_cool", "vav_min", "vav_max"] }
+      ]
+    },
+    {
+      "id": "temp_sensors",
+      "type": "multiselect",
+      "label": "Temperaturgivare (extra)",
+      "help": "Inbyggd rumsgivare ingår alltid. Markera externa givare som finns på enheten.",
+      "options": [
+        { "id": "ext_room",   "label": "Extern rumsgivare (AI1/UI1, PT1000)",        "default": false, "tags": ["room_temp_ext"] },
+        { "id": "supply_air", "label": "Tilluftsgivare (kaskadreglering)",           "default": false, "tags": ["supply_air_pv", "supply_air_csp", "supply_air_op", "supply_air_max_h", "supply_air_min_h", "supply_air_max_c", "supply_air_min_c", "supply_air_frost"] },
+        { "id": "zone2",      "label": "Extra zon-givare (t.ex. golvvärme i badrum)", "default": false, "tags": ["zone2_temp_pv", "zone2_op", "zone2_sp", "zone2_enable"] },
+        { "id": "int_room",   "label": "Intern givare separat (diagnostik)",         "default": false, "tags": ["room_temp_int"] }
+      ]
+    },
+    {
+      "id": "air_quality",
+      "type": "multiselect",
+      "label": "Luftkvalitet (CO₂)",
+      "help": "RCC-C3DOCS / RCC-C3HCS har inbyggd CO₂-givare. RC-C3DOC tar extern CO₂-givare via AI2.",
+      "options": [
+        { "id": "co2",         "label": "CO₂-givare (inbyggd eller extern)",         "default": true,  "tags": ["co2_pv", "co2_hal", "co2_hi_sp"] },
+        { "id": "co2_setpoints", "label": "CO₂-börvärden för VAV-styrning",          "default": true,  "tags": ["co2_sp_low", "co2_sp_high"] },
+        { "id": "co2_presence", "label": "Närvarodetektering via CO₂",                "default": false, "tags": ["co2_presence_sp", "co2_presence_hy", "presence_co2"] }
+      ]
+    },
+    {
+      "id": "outputs",
+      "type": "multiselect",
+      "label": "Utgångar och regulatorvärden",
+      "help": "Manuell-/Auto-styrning, manuella värden och min/max för värme, kyla och VAV.",
+      "options": [
+        { "id": "heat_full",  "label": "Värmeutgång — manuell-läge och min-begränsning", "default": true,  "tags": ["heat_mode", "heat_man", "heat_min", "heat_pulse"] },
+        { "id": "cool_full",  "label": "Kylutgång — manuell-läge",                      "default": true,  "tags": ["cool_mode", "cool_man", "cool_pulse"] },
+        { "id": "vav_full",   "label": "VAV-utgång — manuell-läge och alla min/max",    "default": true,  "tags": ["vav_mode", "vav_man", "vav_min_off"] },
+        { "id": "ec_fan",     "label": "EC-fläkt min/max begränsning (UO3)",           "default": false, "tags": ["ec_fan_min", "ec_fan_max"] }
+      ]
+    },
+    {
+      "id": "fan_control",
+      "type": "dropdown",
+      "label": "Fläktstyrning",
+      "help": "RCC-C3DOCS använder normalt EC-fläkt på UO3. -CF/-CDFO-modeller har 3-stegs fläkt på DO1-DO3 (separat mall).",
+      "default": "ec",
+      "options": [
+        { "id": "none",  "label": "Ingen fläktstyrning",                              "tags": [] },
+        { "id": "ec",    "label": "EC-fläkt (analog 0-10 V på UO3)",                  "tags": ["fan_state", "fan_switch", "fan_select", "fan_ctrl_mode", "fan_speed_max"] },
+        { "id": "boost", "label": "EC-fläkt med boost",                                "tags": ["fan_state", "fan_switch", "fan_select", "fan_ctrl_mode", "fan_speed_max", "fan_boost_time"] }
+      ]
+    },
+    {
+      "id": "operating_mode",
+      "type": "multiselect",
+      "label": "Driftläge & schemaläggning",
+      "options": [
+        { "id": "states_full",   "label": "Förvalt/frånslagsläge och bypass-tid",      "default": true,  "tags": ["preset_state", "shutdown_state", "bypass_time", "shutdown_cmd"] },
+        { "id": "remote_state",  "label": "Centralstyrning (BMS-styrt driftläge)",     "default": true,  "tags": ["remote_state"] },
+        { "id": "ctrl_mode_reg", "label": "Reglerläge-register (för diagnostik)",      "default": false, "tags": ["ctrl_mode"] },
+        { "id": "unocc_setp",    "label": "Unoccupied-börvärden",                      "default": true,  "tags": ["sp_unocc_heat", "sp_unocc_cool"] },
+        { "id": "standby",       "label": "Standby dödzon & frostskydd",               "default": true,  "tags": ["sp_standby_db", "sp_frost"] },
+        { "id": "offset_limits", "label": "Begränsning av börvärdesförskjutning",      "default": false, "tags": ["sp_offset_max", "sp_offset_min"] },
+        { "id": "pid_tuning",    "label": "PID-parametrar (P-band, I-tid)",            "default": false, "tags": ["pid_pband", "pid_itime"] }
+      ]
+    },
+    {
+      "id": "alarms",
+      "type": "multiselect",
+      "label": "Larm och givarfel",
+      "options": [
+        { "id": "room_temp_alarms", "label": "Hög/låg rumstemperatur",                  "default": true,  "tags": ["room_temp_hal", "room_temp_lal", "room_temp_hi_sp", "room_temp_lo_sp"] },
+        { "id": "window",           "label": "Fönsterkontakt",                          "default": false, "tags": ["window_al"] },
+        { "id": "condense",         "label": "Kondensgivare (KG-A/1)",                  "default": false, "tags": ["condense_al"] },
+        { "id": "run_ind",          "label": "Driftindikering från externt aggregat",   "default": false, "tags": ["run_indication"] }
+      ]
+    },
+    {
+      "id": "extra_features",
+      "type": "multiselect",
+      "label": "Extra funktioner",
+      "options": [
+        { "id": "lighting", "label": "Belysningsstyrning (UO3 konfigurerad som lighting)", "default": false, "tags": ["lighting_v"] },
+        { "id": "fan_indicator", "label": "Forcerad ventilation indikering",                 "default": false, "tags": ["forced_vent"] }
+      ]
+    }
+  ]
+}

@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260416.1616
-// @description  Enhanced UI for Kiona WebPort — start page editor
+// @version      7.3.20260429.1750
+// @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -367,6 +367,15 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
 .tpl-hdr .tpl-close { background:none; border:none; font-size:18px; cursor:pointer; color:#666; padding:2px 8px; border-radius:4px; }
 .tpl-hdr .tpl-close:hover { background:#f0f0f0; }
 .tpl-pickers { display:grid; grid-template-columns:1.2fr 1.5fr 1fr; gap:10px; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #eee; }
+.tpl-slaves-row { display:none; grid-template-columns:auto 240px 1fr; gap:12px; align-items:center; margin-bottom:14px; padding:8px 12px; background:#f8f9ff; border:1px solid #e3e6f3; border-radius:6px; }
+.tpl-slaves-row.on { display:grid; }
+.tpl-slaves-row label { font-size:10px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.4px; margin:0; }
+.tpl-slaves-row input { padding:5px 7px; border:1px solid #999; border-radius:4px; font-size:13px; font-weight:500; background:#fff; color:#222 !important; box-sizing:border-box; width:100%; font-family:monospace; }
+.tpl-slaves-row input:focus { outline:2px solid #5b6abf; outline-offset:1px; border-color:#5b6abf; }
+.tpl-slaves-row.tpl-err input { border-color:#b91c1c; background:#fef2f2; }
+.tpl-slaves-row .tpl-slaves-help { font-size:11px; color:#666; line-height:1.3; }
+.tpl-slaves-row .tpl-slaves-help code { font-family:monospace; background:#fff; padding:1px 4px; border-radius:2px; color:#3a4ba0; border:1px solid #e3e6f3; }
+.tpl-slaves-row .tpl-slaves-summary { font-size:11px; color:#3a4ba0; font-weight:600; margin-top:2px; }
 .tpl-pickers > div { min-width:0; }
 .tpl-pickers label { display:block; font-size:10px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
 .tpl-pickers select, .tpl-pickers input { width:100%; padding:5px 7px; border:1px solid #999; border-radius:4px; font-size:13px; font-weight:500; box-sizing:border-box; background:#fff; color:#222 !important; }
@@ -1465,7 +1474,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     // lazy-fetched from TEMPLATE_BASE_URL and cached in GM storage.
     const TEMPLATE_BASE_URL = 'https://phogel1.github.io/static-assets/';
     const TEMPLATE_INDEX = {
-        version: '2026-04-15.6',
+        version: '2026-04-29.1',
         manufacturers: [
             {
                 id: 'ivprodukt', name: 'IVProdukt',
@@ -1477,6 +1486,12 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 id: 'nibe', name: 'NIBE',
                 models: [
                     { id: 'smo-s40', name: 'SMO S40 (orkestrator)', file: 'nibe/smo-s40.json', category: 'Värmepump' }
+                ]
+            },
+            {
+                id: 'regin', name: 'Regin',
+                models: [
+                    { id: 'rcc-c3docs', name: 'Regio Midi RCC-C3DOCS (1.7)', file: 'regin/rcc-c3docs.json', category: 'Regulator' }
                 ]
             },
             {
@@ -1539,7 +1554,11 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     // Pure resolver: given a template + user's config answers + rename prefix,
     // returns an ordered array of fully-resolved tag objects ready for insert.
     // `answers` shape: { <sectionId>: <optionId string for radio> | <optionId[] for multiselect> }
-    function resolveTemplate(tpl, answers, prefix) {
+    // `slaveIds` (optional): array of Modbus slave IDs for multi-slave templates
+    // (e.g. moxa-bridged regulators). When tpl.multiSlave is set and slaveIds
+    // is non-empty, the resolver emits one tag set per slave, with `{prefix}`
+    // expanded to `{prefix}{slave}` and `address` rewritten to `{slave}@{address}`.
+    function resolveTemplate(tpl, answers, prefix, slaveIds) {
         if (!tpl || !tpl.tags) return [];
         const chosen = new Set(Array.isArray(tpl.base) ? tpl.base : []);
         for (const sec of (tpl.config || [])) {
@@ -1553,18 +1572,57 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         }
         const out = [];
         const effPrefix = (prefix && prefix.trim()) || tpl.defaultDevicePrefix || 'DEV1';
-        for (const tid of chosen) {
-            const raw = tpl.tags[tid];
-            if (!raw) { console.warn(CFG.logPrefix, 'resolveTemplate: unknown tag id', tid); continue; }
-            const resolved = {};
-            for (const k of Object.keys(raw)) {
-                const v = raw[k];
-                resolved[k] = (typeof v === 'string') ? v.replace(/\{prefix\}/g, effPrefix) : v;
+        // multiSlave templates require an explicit slave list — bare {prefix}
+        // makes no sense for a Modbus moxa-bridged regulator.
+        if (tpl.multiSlave && (!Array.isArray(slaveIds) || !slaveIds.length)) return [];
+        const isMulti = !!tpl.multiSlave;
+        const slaves = isMulti ? slaveIds : [null];
+        for (const sid of slaves) {
+            const sp = (sid != null) ? (effPrefix + sid) : effPrefix;
+            for (const tid of chosen) {
+                const raw = tpl.tags[tid];
+                if (!raw) { console.warn(CFG.logPrefix, 'resolveTemplate: unknown tag id', tid); continue; }
+                const resolved = {};
+                for (const k of Object.keys(raw)) {
+                    const v = raw[k];
+                    if (typeof v !== 'string') { resolved[k] = v; continue; }
+                    let s = v.replace(/\{prefix\}/g, sp);
+                    if (sid != null && k === 'address' && s) s = sid + '@' + s;
+                    resolved[k] = s;
+                }
+                resolved._id = (sid != null) ? `${tid}__s${sid}` : tid;
+                out.push(resolved);
             }
-            resolved._id = tid;
-            out.push(resolved);
         }
         return out;
+    }
+
+    // Parse a slave-id range string like "1-5, 8, 10" → [1,2,3,4,5,8,10].
+    // Returns { ids, invalid } so the UI can flag bad tokens without rejecting
+    // the whole input. Modbus slave IDs are 1–247.
+    function _tplParseSlaveRange(s) {
+        const ids = new Set();
+        const invalid = [];
+        if (s == null || !String(s).trim()) return { ids: [], invalid: [] };
+        for (const tokRaw of String(s).split(',')) {
+            const tok = tokRaw.trim();
+            if (!tok) continue;
+            const m = tok.match(/^(\d+)\s*-\s*(\d+)$/);
+            if (m) {
+                const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+                if (a < 1 || b < 1 || a > 247 || b > 247 || a > b) { invalid.push(tok); continue; }
+                for (let i = a; i <= b; i++) ids.add(i);
+                continue;
+            }
+            if (/^\d+$/.test(tok)) {
+                const n = parseInt(tok, 10);
+                if (n < 1 || n > 247) { invalid.push(tok); continue; }
+                ids.add(n);
+                continue;
+            }
+            invalid.push(tok);
+        }
+        return { ids: Array.from(ids).sort((a, b) => a - b), invalid };
     }
 
     // ----- Tag creation via copy+edit seed-tag approach -----
@@ -1667,17 +1725,25 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
 
     // Resolve the tags that a single configurator option will pull in, with
     // {prefix} substituted. Returns an array of {name, address, type, description}.
-    function _tplOptionTags(tpl, opt, prefix) {
+    // For multi-slave templates: shows one example slave (the first in slaveIds,
+    // or 1 as a placeholder) so the popup stays compact — the resolved-list
+    // section below the modal shows the full per-slave expansion.
+    function _tplOptionTags(tpl, opt, prefix, slaveIds) {
         if (!opt || !opt.tags || !opt.tags.length) return [];
         const effPrefix = (prefix && String(prefix).trim()) || tpl.defaultDevicePrefix || 'DEV1';
+        const isMulti = !!tpl.multiSlave;
+        const exampleSid = isMulti ? ((Array.isArray(slaveIds) && slaveIds[0]) || 1) : null;
+        const sp = (exampleSid != null) ? (effPrefix + exampleSid) : effPrefix;
         const out = [];
         for (const tid of opt.tags) {
             const raw = tpl.tags && tpl.tags[tid];
             if (!raw) continue;
-            const resolvedName = String(raw.name || tid).replace(/\{prefix\}/g, effPrefix);
+            const resolvedName = String(raw.name || tid).replace(/\{prefix\}/g, sp);
+            const addr = raw.address || '';
+            const resolvedAddr = (exampleSid != null && addr) ? (exampleSid + '@' + addr) : addr;
             out.push({
                 name: resolvedName,
-                address: raw.address || '',
+                address: resolvedAddr,
                 type: _tplTagTypeLabel({ name: resolvedName, unit: raw.unit, datatype: raw.datatype }),
                 description: raw.description || ''
             });
@@ -1740,7 +1806,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         return btn;
     }
 
-    function _tplRenderConfig(tpl, state, container, onChange, getPrefix) {
+    function _tplRenderConfig(tpl, state, container, onChange, getPrefix, getSlaves) {
         container.innerHTML = '';
         if (!tpl.config || !tpl.config.length) {
             const msg = document.createElement('div');
@@ -1789,7 +1855,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 const infoBtn = _tplCreateInfoBtn(() => {
                     const currentId = state[sec.id];
                     const currentOpt = (sec.options || []).find(o => o.id === currentId);
-                    return _tplOptionTags(tpl, currentOpt, getPrefix && getPrefix());
+                    return _tplOptionTags(tpl, currentOpt, getPrefix && getPrefix(), getSlaves && getSlaves());
                 });
                 row.appendChild(infoBtn);
                 cell.appendChild(row);
@@ -1841,7 +1907,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 const txt = document.createElement('span');
                 txt.textContent = opt.label || opt.id;
                 lab.appendChild(txt);
-                const infoBtn = _tplCreateInfoBtn(() => _tplOptionTags(tpl, opt, getPrefix && getPrefix()));
+                const infoBtn = _tplCreateInfoBtn(() => _tplOptionTags(tpl, opt, getPrefix && getPrefix(), getSlaves && getSlaves()));
                 lab.appendChild(infoBtn);
                 opts.appendChild(lab);
             }
@@ -1929,6 +1995,16 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     <input id="tpl-prefix" placeholder="AHU1 / HP1 / …">
   </div>
 </div>
+<div class="tpl-slaves-row" id="tpl-slaves-row">
+  <label>Slav-ID:n</label>
+  <div>
+    <input id="tpl-slaves" placeholder="1-5, 8, 10">
+    <div class="tpl-slaves-summary" id="tpl-slaves-summary"></div>
+  </div>
+  <div class="tpl-slaves-help">
+    En tagguppsättning per slav. Adresser blir <code>ID@adress</code>, namn får <code>{prefix}{ID}</code>. Ex: <code>1-5, 8, 10</code> → 1,2,3,4,5,8,10.
+  </div>
+</div>
 <div class="tpl-status" id="tpl-status"></div>
 <div class="tpl-cfg" id="tpl-cfg"><div style="font-size:12px;color:#888;padding:12px;">Välj tillverkare och modell för att ladda mallen...</div></div>
 <div class="tpl-resolved" style="display:none;" id="tpl-res-wrap">
@@ -1952,6 +2028,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         const q = s => mb.querySelector(s);
         const mfrSel = q('#tpl-mfr'), modelSel = q('#tpl-model');
         const prefixInp = q('#tpl-prefix'), statusEl = q('#tpl-status'), cfgEl = q('#tpl-cfg');
+        const slavesRow = q('#tpl-slaves-row'), slavesInp = q('#tpl-slaves'), slavesSummary = q('#tpl-slaves-summary');
         const resWrap = q('#tpl-res-wrap'), resHdr = q('#tpl-res-hdr'), resBody = q('#tpl-res-body'), resCount = q('#tpl-res-count');
         const addBtn = q('#tpl-add'), cancelBtn = q('#tpl-cancel');
         const progEl = q('#tpl-prog'), progText = q('#tpl-prog-text'), progFill = q('#tpl-prog-fill');
@@ -1993,9 +2070,33 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             statusEl.style.display = 'block';
         }
 
+        // Parse the slave-range input and refresh the small summary line under
+        // it. Returns the parse result so the caller can use the IDs/invalid
+        // tokens to decide what to render and what status banner to show.
+        function refreshSlaves() {
+            if (!currentTpl || !currentTpl.multiSlave) {
+                slavesRow.classList.remove('on', 'tpl-err');
+                slavesSummary.textContent = '';
+                return { ids: [], invalid: [] };
+            }
+            slavesRow.classList.add('on');
+            const parsed = _tplParseSlaveRange(slavesInp.value);
+            slavesRow.classList.toggle('tpl-err', parsed.invalid.length > 0);
+            if (!parsed.ids.length && !parsed.invalid.length) {
+                slavesSummary.textContent = 'Ange minst ett slav-ID.';
+            } else if (parsed.ids.length) {
+                slavesSummary.textContent = `${parsed.ids.length} slav${parsed.ids.length === 1 ? '' : 'ar'}: ${parsed.ids.join(', ')}`
+                    + (parsed.invalid.length ? `   (ignorerar: ${parsed.invalid.join(', ')})` : '');
+            } else {
+                slavesSummary.textContent = `Ogiltiga: ${parsed.invalid.join(', ')}`;
+            }
+            return parsed;
+        }
+
         function updatePreview() {
             if (!currentTpl) { resWrap.style.display = 'none'; addBtn.disabled = true; return; }
-            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value);
+            const slavesParsed = refreshSlaves();
+            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value, slavesParsed.ids);
             const effective = resolved.filter(t => !uncheckedIds.has(t._id));
             resCount.textContent = effective.length + ' taggar';
             resWrap.style.display = 'block';
@@ -2022,7 +2123,9 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 currentAnswers = _tplInitialAnswers(tpl);
                 uncheckedIds.clear();
                 if (tpl.defaultDevicePrefix && !prefixInp.value) prefixInp.value = tpl.defaultDevicePrefix;
-                _tplRenderConfig(tpl, currentAnswers, cfgEl, updatePreview, () => prefixInp.value);
+                if (tpl.multiSlave && !slavesInp.value) slavesInp.value = tpl.defaultSlaves || '1';
+                _tplRenderConfig(tpl, currentAnswers, cfgEl, updatePreview, () => prefixInp.value,
+                    () => (currentTpl && currentTpl.multiSlave) ? _tplParseSlaveRange(slavesInp.value).ids : []);
                 // Don't wipe the empty-table warning when the load succeeds — it stays
                 // up until the commissioner closes the modal and creates a seed tag.
                 if (seedTag) setStatus('', false);
@@ -2038,6 +2141,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         mfrSel.addEventListener('change', () => { populateModelDropdown(); loadModel(); });
         modelSel.addEventListener('change', loadModel);
         prefixInp.addEventListener('input', updatePreview);
+        slavesInp.addEventListener('input', updatePreview);
         resHdr.addEventListener('click', () => {
             resHdr.classList.toggle('open');
             resBody.classList.toggle('open');
@@ -2047,7 +2151,8 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
 
         addBtn.addEventListener('click', async () => {
             if (!currentTpl || !seedTag) return;
-            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value);
+            const slaveIds = currentTpl.multiSlave ? _tplParseSlaveRange(slavesInp.value).ids : [];
+            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value, slaveIds);
             const toCreate = resolved.filter(t => !uncheckedIds.has(t._id));
             if (!toCreate.length) return;
 
@@ -6472,317 +6577,6 @@ ${this.buildTimelineHtml(group.key)}`;
     }
 
     // ============================================================
-    // START PAGE EDITOR
-    // ============================================================
-    function isStartPageEdit() {
-        return location.pathname === '/main/edit';
-    }
-
-    function _spe_parseContent() {
-        const editor = typeof tinymce !== 'undefined' && tinymce.activeEditor;
-        if (!editor) return null;
-        const body = editor.getBody();
-        const h1 = body.querySelector('h1');
-        const h4 = body.querySelector('h4');
-        const anchor = body.querySelector('a.weatherwidget-io');
-        const img = body.querySelector('img');
-
-        const siteName = h1 ? h1.textContent.trim() : '';
-        let street = '', zipCity = '';
-        if (h4) {
-            const tmp = document.createElement('div');
-            tmp.innerHTML = h4.innerHTML;
-            const br = tmp.querySelector('br');
-            if (br) {
-                const before = [], after = [];
-                let found = false;
-                for (const n of tmp.childNodes) {
-                    if (n === br) { found = true; continue; }
-                    (found ? after : before).push(n.textContent || '');
-                }
-                street = before.join('').trim();
-                zipCity = after.join('').trim();
-            } else {
-                street = h4.textContent.trim();
-            }
-        }
-
-        let weatherHref = '', weatherLabel = '';
-        if (anchor) {
-            weatherHref = anchor.getAttribute('href') || '';
-            weatherLabel = anchor.getAttribute('data-label_1') || '';
-        }
-
-        const imageSrc = img ? (img.getAttribute('src') || '') : '';
-
-        return { siteName, street, zipCity, weatherHref, weatherLabel, imageSrc };
-    }
-
-    function _spe_buildHtml(vals) {
-        let html = '<p>\n<script>\nwindow.onresize = function(event) {\n    var wwidth = $(window).width();\n    var maxWidth = 600;\n    if(wwidth > maxWidth){\n        $("#inuforecast").width(800);\n    }else{\n        $("#inuforecast").width(wwidth*0.9);\n    }\n};\n\n</script>\n</p>\n';
-        html += '<div style="width: 100%; max-width: 700px; margin: 40px auto 0; text-align: center; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,.08); overflow: hidden;">\n';
-        if (vals.imageSrc) {
-            html += '<div style="padding: 32px 20px 16px;">';
-            html += '<img style="display: block; margin: auto; max-width: 320px; max-height: 100px;" src="' + vals.imageSrc + '" />';
-            html += '</div>\n';
-        }
-        html += '<div style="padding: 8px 20px 8px;">';
-        html += '<h1 style="margin: 0 0 4px; font-size: 26px; color: #1a1a1a;">' + vals.siteName + '</h1>\n';
-        html += '<div style="width: 40px; height: 3px; background: #1b5e20; border-radius: 2px; margin: 12px auto 16px;"></div>\n';
-        html += '<p style="margin: 0 0 24px; font-size: 14px; color: #666;">' + vals.street + '<br />' + vals.zipCity + '</p>\n';
-        html += '</div>';
-        if (vals.weatherHref) {
-            html += '<div id="inuforecast" style="height: 200px; width: 100%; max-width: 640px; margin: 0 auto; padding: 0 20px;">';
-            html += '<a class="weatherwidget-io" href="' + vals.weatherHref + '" data-label_1="' + vals.weatherLabel + '" data-label_2="Just nu" data-theme="pure">' + vals.weatherLabel + ' Just nu</a>';
-            html += '</div>\n';
-            html += '<p>\n<script>\n!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=\'https://weatherwidget.io/js/widget.min.js\';fjs.parentNode.insertBefore(js,fjs);}}(document,\'script\',\'weatherwidget-io-js\');\n</script>\n</p>';
-        }
-        html += '<div style="border-top: 1px solid #eee; padding: 12px 20px; margin-top: 16px;">';
-        html += '<p style="margin: 0; font-size: 10px; color: #bbb;">Powered by INU WebPort+</p>';
-        html += '</div>\n</div>';
-        return html;
-    }
-
-    function _spe_applyContent(vals) {
-        const editor = typeof tinymce !== 'undefined' && tinymce.activeEditor;
-        if (!editor) return;
-        const body = editor.getBody();
-        const hasContent = body.textContent.trim().length > 0 || body.querySelector('img');
-        if (hasContent && !confirm('Startsidan har redan innehåll. Vill du ersätta allt med den nya mallen?')) return false;
-        editor.setContent(_spe_buildHtml(vals));
-        editor.setDirty(true);
-        editor.undoManager.add();
-        editor.fire('change');
-        return true;
-    }
-
-    let _spe_pageid = '';
-
-    async function _spe_getPageId() {
-        if (_spe_pageid) return _spe_pageid;
-        try {
-            let urlPid = '';
-            const link = document.querySelector('a[href*="pageid="]');
-            if (link) {
-                const m = link.href.match(/pageid=([^&"']+)/);
-                if (m) urlPid = m[1];
-            }
-            if (!urlPid) {
-                const r = await fetch('/page');
-                const html = await r.text();
-                const m = html.match(/pageid=([^&"']+)/);
-                if (m) urlPid = m[1];
-            }
-            if (!urlPid) return '';
-            const r = await fetch('/page/pageproperties?pageid=' + urlPid);
-            const html = await r.text();
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-            const inp = doc.querySelector('input[name="pageid"]');
-            if (inp) { _spe_pageid = inp.value; return _spe_pageid; }
-            _spe_pageid = urlPid;
-            return _spe_pageid;
-        } catch (e) { return ''; }
-    }
-
-    async function _spe_fetchBackgrounds() {
-        try {
-            const pageid = await _spe_getPageId();
-            if (!pageid) return [];
-            const r = await fetch('/page/pageproperties?pageid=' + pageid);
-            const html = await r.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const sel = doc.querySelector('select[name="background"]');
-            if (!sel) return [];
-            return Array.from(sel.options)
-                .filter(o => o.value.startsWith('/system/backgrounds/'))
-                .map(o => ({ path: o.value, name: o.text }));
-        } catch (e) {
-            console.error(CFG.logPrefix, 'Failed to fetch backgrounds:', e);
-            return [];
-        }
-    }
-
-    async function _spe_uploadBackground(file) {
-        const pageid = await _spe_getPageId();
-        if (!pageid) throw new Error('Kunde inte hitta ett pageid för uppladdning');
-        // Snapshot the page's current settings so we can restore after upload
-        const r0 = await fetch('/page/pageproperties?pageid=' + pageid);
-        const html = await r0.text();
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-        const origForm = doc.querySelector('form[action*="updatepageproperties"]');
-        if (!origForm) throw new Error('Kunde inte läsa sidinställningar');
-        const restoreData = new FormData(origForm);
-
-        // Upload the file (side-effect: temporarily sets it as page bg)
-        const fd = new FormData();
-        fd.append('pageid', pageid);
-        fd.append('background', file);
-        const r1 = await fetch('/page/updatepageproperties', { method: 'POST', body: fd });
-        if (!r1.ok) throw new Error('Uppladdning misslyckades (' + r1.status + ')');
-
-        // Restore original page settings immediately
-        await fetch('/page/updatepageproperties', { method: 'POST', body: restoreData });
-
-        return '/system/backgrounds/' + file.name.toLowerCase();
-    }
-
-    function openStartPageEditor() {
-        const cur = _spe_parseContent();
-        if (!cur) { toastErr('Kunde inte läsa sidinnehållet'); return; }
-
-        const m = modal(`
-<h3><i class="fa fa-home"></i> Redigera startsida</h3>
-<div style="display:flex;gap:16px;margin-bottom:8px;">
-  <div style="flex:1;">
-    <label>Anläggningsnamn</label>
-    <input id="spe-name" value="" placeholder="T.ex. Stora Mossen">
-    <label>Gatuadress</label>
-    <input id="spe-street" value="" placeholder="T.ex. Sobelgränd 4">
-    <label>Postnummer &amp; ort</label>
-    <input id="spe-zip" value="" placeholder="T.ex. 167 58 Bromma">
-  </div>
-  <div style="flex:0 0 180px;text-align:center;">
-    <label>Logotyp / splash</label>
-    <div id="spe-img-preview" style="width:160px;height:100px;border:1px solid #ddd;border-radius:4px;margin:4px auto 6px;display:flex;align-items:center;justify-content:center;background:#fafafa;overflow:hidden;">
-      <span style="color:#aaa;font-size:11px;">Ingen bild</span>
-    </div>
-    <select id="spe-img-select" style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;font-size:11px;color:#222;font-weight:500;">
-      <option value="">Laddar...</option>
-    </select>
-    <input type="file" id="spe-img-upload" accept="image/svg+xml,image/png,image/jpeg" style="display:none;">
-    <button id="spe-img-upload-btn" type="button" style="margin-top:4px;padding:3px 8px;border:1px solid #ccc;border-radius:3px;background:#fff;font-size:10px;cursor:pointer;color:#555;">Ladda upp ny bild...</button>
-  </div>
-</div>
-<hr style="margin:10px 0 8px;border:none;border-top:1px solid #eee;">
-<label>Väderwidget — platsnamn</label>
-<input id="spe-wlabel" value="" placeholder="T.ex. Bromma">
-<label>Väderwidget — URL <a href="https://weatherwidget.io/" target="_blank" rel="noopener" style="font-size:10px;font-weight:400;color:#5b6abf;margin-left:4px;">Skapa på weatherwidget.io ↗</a></label>
-<input id="spe-whref" value="" placeholder="https://forecast7.com/sv/.../">
-<p style="font-size:10px;color:#888;margin:4px 0 0;">Gå till <a href="https://weatherwidget.io/" target="_blank" rel="noopener" style="color:#5b6abf;">weatherwidget.io</a>, välj plats och tema <b>Pure</b>, kopiera URL:en från den genererade koden.</p>
-<div class="bt"><button class="bx" id="spe-cancel">Avbryt</button><button class="bok" id="spe-save"><i class="fa fa-check"></i> Uppdatera</button></div>`);
-
-        m.querySelector('#spe-name').value = cur.siteName;
-        m.querySelector('#spe-street').value = cur.street;
-        m.querySelector('#spe-zip').value = cur.zipCity;
-        m.querySelector('#spe-wlabel').value = cur.weatherLabel;
-        m.querySelector('#spe-whref').value = cur.weatherHref;
-
-        const preview = m.querySelector('#spe-img-preview');
-        const sel = m.querySelector('#spe-img-select');
-        const curSrc = cur.imageSrc;
-
-        function updatePreview(src) {
-            if (src) {
-                let abs = src;
-                if (abs.startsWith('../')) abs = '/' + abs.replace(/^\.\.\//, '');
-                preview.innerHTML = '<img src="' + abs + '" style="max-width:100%;max-height:100%;object-fit:contain;">';
-            } else {
-                preview.innerHTML = '<span style="color:#aaa;font-size:11px;">Ingen bild</span>';
-            }
-        }
-
-        updatePreview(curSrc);
-
-        _spe_fetchBackgrounds().then(bgs => {
-            sel.innerHTML = '<option value="">— Ingen bild —</option>';
-            for (const bg of bgs) {
-                const opt = document.createElement('option');
-                opt.value = bg.path;
-                opt.textContent = bg.name;
-                if (curSrc && (curSrc.includes(bg.name.toLowerCase().replace(/ /g, '%20')) || bg.path.endsWith(curSrc.replace('../', '/')))) {
-                    opt.selected = true;
-                }
-                sel.appendChild(opt);
-            }
-            if (!sel.value && curSrc) {
-                const fname = curSrc.split('/').pop();
-                for (const opt of sel.options) {
-                    if (opt.value.split('/').pop().toLowerCase() === fname.toLowerCase()) {
-                        opt.selected = true;
-                        break;
-                    }
-                }
-            }
-        });
-
-        sel.addEventListener('change', () => updatePreview(sel.value));
-
-        const fileInput = m.querySelector('#spe-img-upload');
-        const uploadBtn = m.querySelector('#spe-img-upload-btn');
-        uploadBtn.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', async () => {
-            const file = fileInput.files[0];
-            if (!file) return;
-            uploadBtn.disabled = true;
-            uploadBtn.textContent = 'Laddar upp...';
-            try {
-                const path = await _spe_uploadBackground(file);
-                const bgs = await _spe_fetchBackgrounds();
-                sel.innerHTML = '<option value="">— Ingen bild —</option>';
-                for (const bg of bgs) {
-                    const opt = document.createElement('option');
-                    opt.value = bg.path;
-                    opt.textContent = bg.name;
-                    sel.appendChild(opt);
-                }
-                const match = Array.from(sel.options).find(o => o.value.toLowerCase().includes(file.name.toLowerCase()));
-                if (match) match.selected = true;
-                updatePreview(sel.value);
-                toastOk('Bild uppladdad: ' + file.name);
-            } catch (e) {
-                toastErr(e.message || 'Uppladdning misslyckades');
-            }
-            uploadBtn.disabled = false;
-            uploadBtn.textContent = 'Ladda upp ny bild...';
-        });
-
-        m.querySelector('#spe-cancel').addEventListener('click', () => m.remove());
-        m.querySelector('#spe-save').addEventListener('click', () => {
-            let imgSrc = sel.value;
-
-            if (imgSrc && imgSrc.startsWith('/system/')) {
-                imgSrc = '..' + imgSrc;
-            }
-
-            const vals = {
-                siteName: m.querySelector('#spe-name').value.trim(),
-                street: m.querySelector('#spe-street').value.trim(),
-                zipCity: m.querySelector('#spe-zip').value.trim(),
-                weatherLabel: m.querySelector('#spe-wlabel').value.trim(),
-                weatherHref: m.querySelector('#spe-whref').value.trim(),
-                imageSrc: imgSrc
-            };
-            if (!vals.siteName) { toastErr('Ange anläggningsnamn'); return; }
-            if (_spe_applyContent(vals) === false) return;
-            m.remove();
-            toastOk('Startsida uppdaterad — spara sidan för att verkställa');
-        });
-    }
-
-    function initStartPageEditor() {
-        if (document.getElementById('inu-spe-btn')) return;
-
-        const toolbarBody = document.querySelector('.mce-toolbar-grp .mce-toolbar .mce-container-body');
-        if (!toolbarBody) return;
-
-        if (!document.getElementById('inu-spe-styles')) {
-            const s = document.createElement('style');
-            s.id = 'inu-spe-styles';
-            s.textContent = `.mo{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:100000;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 0}.mb{background:#fff;border-radius:8px;padding:20px;min-width:540px;max-width:90vw;width:900px;box-shadow:0 8px 32px rgba(0,0,0,.3);margin:auto}.mb h3{margin:0 0 12px;font-size:15px}.mb label{display:block;margin:6px 0 2px;font-size:11px;font-weight:600;color:#555}.mb input,.mb textarea{width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box}.mb .fr{display:flex;gap:8px}.mb .fr>div{flex:1}.mb .bt{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}.mb .bt button{padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600}.mb .bok{padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;background:#5b6abf;color:#fff}.mb .bok:hover{background:#4a58a8}.mb .bx{background:#eee;color:#333}.mb .bx:hover{background:#ddd}`;
-            document.head.appendChild(s);
-        }
-
-        const wrap = document.createElement('div');
-        wrap.id = 'inu-spe-btn';
-        wrap.className = 'mce-widget mce-btn mce-flow-layout-item';
-        wrap.style.cursor = 'pointer';
-        wrap.innerHTML = '<button type="button" style="background:#1b5e20;color:#fff;border:none;border-radius:3px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">✎ Startsida</button>';
-        wrap.addEventListener('click', openStartPageEditor);
-        toolbarBody.appendChild(wrap);
-    }
-
-    // ============================================================
     // INIT
     // ============================================================
     function init() {
@@ -6833,16 +6627,6 @@ ${this.buildTimelineHtml(group.key)}`;
                 // Delay editor init to let WebPort finish rendering
                 // components before we access the iframe DOM.
                 setTimeout(() => { initPageEditor(); initDiagramTooltip(); }, 1500);
-            } else if(isStartPageEdit()){
-                clearInterval(wait);
-                // TinyMCE needs time to initialize before we can inject our button
-                const speWait = setInterval(() => {
-                    if (typeof tinymce !== 'undefined' && tinymce.activeEditor) {
-                        clearInterval(speWait);
-                        initStartPageEditor();
-                    }
-                }, 300);
-                setTimeout(() => clearInterval(speWait), 10000);
             } else if(att>=100) {
                 clearInterval(wait);
             }
