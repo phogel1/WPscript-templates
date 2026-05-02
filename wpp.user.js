@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260502.1215
+// @version      7.3.20260502.2233
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -889,8 +889,8 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         });
         return rows;
     }
-    function syncSelCheckboxes() {
-        document.querySelectorAll('#tagtable tbody tr.tag').forEach(r => {
+    function syncSelCheckboxes(rows) {
+        (rows || document.querySelectorAll('#tagtable tbody tr.tag')).forEach(r => {
             const name = r.cells[C.NAME]?.textContent?.trim();
             if (!name) return;
             const on = selNames.has(name);
@@ -945,8 +945,8 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         // Escape regex special chars, then convert * to .* wildcard
         return text.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
     }
-    function applyFilter() {
-        document.querySelectorAll('#tagtable tbody tr.tag').forEach(r => {
+    function applyFilter(rows) {
+        (rows || document.querySelectorAll('#tagtable tbody tr.tag')).forEach(r => {
             const dt = r.cells[C.DTYPE]?.textContent?.trim();
             const isDig = dt === 'DIGITAL';
             const isUnc = !isDig && unconf(r);
@@ -1016,9 +1016,9 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         updSummary();
     }
 
-    function reapplyPendingDeletes() {
+    function reapplyPendingDeletes(rows) {
         if (!pendingDeletes.size) return;
-        document.querySelectorAll('#tagtable tbody tr.tag').forEach(row => {
+        (rows || document.querySelectorAll('#tagtable tbody tr.tag')).forEach(row => {
             const tag = rowTagName(row);
             if (tag && pendingDeletes.has(tag)) applyDelVisual(row, tag);
         });
@@ -1490,6 +1490,9 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         });
     }
     function addColumnFilters() {
+        // Filter buttons live in <thead> which DataTables doesn't redraw —
+        // once attached they stay forever. Skip the work on every redraw.
+        if (document.querySelector('#tagtable thead .inu-col-filter-btn')) return;
         const ths = document.querySelectorAll('#tagtable thead tr:first-child th');
         [{ idx: C.IO }, { idx: C.DTYPE }, { idx: C.UNIT }].forEach(({ idx }) => {
             const th = ths[idx];
@@ -2523,7 +2526,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 logAppend('error','Bulk-fältredigering misslyckades för '+tag+': '+r.error.message,'inu');
             }});
             updSummary(); updDirty();
-            if (field === 'address' || field === 'device') detectDuplicates();
+            if (field === 'address' || field === 'device') { _dupNeedsRecalc = true; detectDuplicates(); }
             toastOk(`${ok} uppdaterade`+(fail?`, ${fail} misslyckades`:''));
             bfApply.disabled=false; bfApply.textContent='Sätt';
         });
@@ -2699,10 +2702,10 @@ Verktyg för snabb skalningskonfigurering av taggar i INU WebPort.
         });
     }
 
-    function updSummary() {
+    function updSummary(rows) {
         if(!sumEl) return;
         // Current page counts
-        const rows=document.querySelectorAll('#tagtable tbody tr.tag');
+        rows = rows || document.querySelectorAll('#tagtable tbody tr.tag');
         let tot=0,conf=0,unc=0,dig=0;
         rows.forEach(r=>{
             tot++;
@@ -2776,7 +2779,7 @@ ${totalHtml}${pillsHtml ? `<span class="inf">| Aktiva filter:</span>${pillsHtml}
     // ============================================================
     // BUILD COLUMNS
     // ============================================================
-    function addColumns() {
+    function addColumns(rows) {
         const table=document.getElementById('tagtable');if(!table)return;
 
         // Headers (prepend — reverse order so checkbox ends up first)
@@ -2793,8 +2796,10 @@ ${totalHtml}${pillsHtml ? `<span class="inf">| Aktiva filter:</span>${pillsHtml}
             tr.insertBefore(th0, tr.firstChild);
         });
 
-        // Rows
-        table.querySelectorAll('tbody tr.tag').forEach(row=>{
+        // Rows — caller may pass a pre-enumerated NodeList (observer cluster)
+        // to avoid 6 redundant querySelectorAll() scans per redraw.
+        const rowList = rows || table.querySelectorAll('tbody tr.tag');
+        rowList.forEach(row=>{
             if(row.querySelector('.p-larm'))return;
 
             // Checkbox
@@ -2892,15 +2897,23 @@ ${totalHtml}${pillsHtml ? `<span class="inf">| Aktiva filter:</span>${pillsHtml}
             colorRow(row);
             updUndo(row);
         });
-        detectDuplicates();
+        // Only re-scan duplicates when an IO-Enhet/Adress cell changed since
+        // the last detect — full table scan is wasted work otherwise.
+        if (_dupNeedsRecalc) {
+            _dupNeedsRecalc = false;
+            detectDuplicates(rowList);
+        }
     }
 
     // ============================================================
     // DUPLICATE ADDRESS DETECTION
     // ============================================================
-    function detectDuplicates() {
+    // Set true on first run + whenever an IO-Enhet/Adress edit happens.
+    // Read+cleared by addColumns() during the observer-cluster debounce.
+    let _dupNeedsRecalc = true;
+    function detectDuplicates(rows) {
         const map = {}; // "device|address" → [rows]
-        const rows = document.querySelectorAll('#tagtable tbody tr.tag');
+        rows = rows || document.querySelectorAll('#tagtable tbody tr.tag');
         rows.forEach(r => {
             const dev = r.cells[C.IO]?.textContent?.trim() || '';
             const addr = r.cells[C.ADDR]?.textContent?.trim() || '';
@@ -3255,7 +3268,7 @@ ${delSection}
                     colorRow(row); updSummary();
                     if (!sessionChanges[tag]) sessionChanges[tag] = { old: oldSnap, presetName: '(redigerad)' };
                     updDirty();
-                    if (cellDef.field === 'address' || cellDef.field === 'device') detectDuplicates();
+                    if (cellDef.field === 'address' || cellDef.field === 'device') { _dupNeedsRecalc = true; detectDuplicates(); }
                 } catch (err) {
                     cell.textContent = cur;
                     toastErr(err.message);
@@ -3852,6 +3865,11 @@ Visa allt
             this.sound = false;
             this.el = null;
             this.audioCtx = null;
+            // Opt-in: pause polling when the tab is hidden. Off by default —
+            // commissioners often keep this on a 2nd monitor where document.hidden
+            // can lie about visibility.
+            this.pauseHidden = !!GM_getValue('inu_mon_pause_hidden', false);
+            this._visHandler = null;
         }
 
         open() {
@@ -3870,6 +3888,7 @@ Visa allt
     <span class="inu-mon-controls">
         <button title="Spotlight vid utanför skalning (O)" class="inu-mon-btn inu-mon-btn-active" data-act="oor"><i class="fa fa-exclamation-triangle"></i></button>
         <button title="Ljud på/av (S)" class="inu-mon-btn" data-act="sound"><i class="fa fa-volume-off"></i></button>
+        <button title="Pausa när dold (H)" class="inu-mon-btn${this.pauseHidden ? ' inu-mon-btn-active' : ''}" data-act="pauseHidden"><i class="fa fa-moon-o"></i></button>
         <button title="Mörkt/ljust (D)" class="inu-mon-btn" data-act="theme"><i class="fa fa-adjust"></i></button>
         <button title="Fullskärm (F)" class="inu-mon-btn" data-act="full"><i class="fa fa-expand"></i></button>
         <button title="Stäng (Esc)" class="inu-mon-btn" data-act="close"><i class="fa fa-times"></i></button>
@@ -3894,6 +3913,17 @@ Visa allt
             this.bindButtons();
             this.updateClock();
             this.clockTimer = setInterval(() => this.updateClock(), 1000);
+            // When pauseHidden is on, poll() exits early on hidden — but as
+            // soon as the tab is visible again we want a fresh sample, not
+            // to wait CFG.pollMs for the next scheduled tick.
+            this._visHandler = () => {
+                if (this.closed) return;
+                if (!document.hidden && this.pauseHidden) {
+                    clearTimeout(this.pollTimer);
+                    this.poll();
+                }
+            };
+            document.addEventListener('visibilitychange', this._visHandler);
             this.poll();
         }
 
@@ -3901,6 +3931,7 @@ Visa allt
             this.closed = true;
             clearTimeout(this.pollTimer);
             clearInterval(this.clockTimer);
+            if (this._visHandler) document.removeEventListener('visibilitychange', this._visHandler);
             if (this.el) this.el.remove();
             document.removeEventListener('keydown', this._keyHandler);
             if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -4152,6 +4183,12 @@ ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa f
 
         async poll() {
             if (this.closed) return;
+            // Opt-in skip when the tab is hidden — visibilitychange handler
+            // will fire poll() again immediately when we come back.
+            if (this.pauseHidden && document.hidden) {
+                this.pollTimer = setTimeout(() => this.poll(), CFG.pollMs);
+                return;
+            }
             try {
                 const params = this.allTags.map(t => 'tag=' + t.id).join('&');
                 const ctrlParams = this.ctrlTagNames.map(n => 'tag=' + encodeURIComponent(n)).join('&');
@@ -4409,6 +4446,11 @@ ${this.buildTimelineHtml(group.key)}`;
                 if (act === 'theme') { this.dark = !this.dark; this.el.classList.toggle('dark', this.dark); this.el.classList.toggle('light', !this.dark); }
                 if (act === 'oor') { this.spotOOR = !this.spotOOR; btn.classList.toggle('inu-mon-btn-active', this.spotOOR); if (!this.spotOOR) this.clearOORSpotCards(); }
                 if (act === 'sound') { this.sound = !this.sound; btn.querySelector('i').className = 'fa fa-volume-' + (this.sound ? 'up' : 'off'); }
+                if (act === 'pauseHidden') {
+                    this.pauseHidden = !this.pauseHidden;
+                    GM_setValue('inu_mon_pause_hidden', this.pauseHidden);
+                    btn.classList.toggle('inu-mon-btn-active', this.pauseHidden);
+                }
                 if (act === 'full') {
                     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
                     else this.el.requestFullscreen().catch(() => {});
@@ -4423,6 +4465,12 @@ ${this.buildTimelineHtml(group.key)}`;
                 if (e.key.toLowerCase() === 'd') { this.dark = !this.dark; this.el.classList.toggle('dark', this.dark); this.el.classList.toggle('light', !this.dark); }
                 if (e.key.toLowerCase() === 'o') { this.spotOOR = !this.spotOOR; const b = this.el.querySelector('[data-act="oor"]'); if (b) b.classList.toggle('inu-mon-btn-active', this.spotOOR); if (!this.spotOOR) this.clearOORSpotCards(); }
                 if (e.key.toLowerCase() === 's') { this.sound = !this.sound; const i = this.el.querySelector('[data-act="sound"] i'); if (i) i.className = 'fa fa-volume-' + (this.sound ? 'up' : 'off'); }
+                if (e.key.toLowerCase() === 'h') {
+                    this.pauseHidden = !this.pauseHidden;
+                    GM_setValue('inu_mon_pause_hidden', this.pauseHidden);
+                    const b = this.el.querySelector('[data-act="pauseHidden"]');
+                    if (b) b.classList.toggle('inu-mon-btn-active', this.pauseHidden);
+                }
                 if (e.key.toLowerCase() === 'c') { const s = this.el.querySelector('#inu-mon-spot'); if (s) s.innerHTML = '<div class="inu-mon-spot-empty"><i class="fa fa-plug"></i><br>Väntar på förändring...</div>'; }
             };
             document.addEventListener('keydown', this._keyHandler);
@@ -4728,8 +4776,10 @@ ${this.buildTimelineHtml(group.key)}`;
             }
         }
 
-        // Pass 2: async fetch for rows without cached toggle state
-        for (const item of toFetch) {
+        // Pass 2: parallel fetch for rows without cached toggle state.
+        // Sequential per-device fetches at ~150ms each made this take ~7s
+        // on a 50-device site — concurrency-cap brings it to ~1s.
+        await runWithConcurrency(toFetch, BULK_CONCURRENCY, async (item) => {
             try {
                 const r = await fetch('/device/ActionEdit?show=1&type=device&guid=' + item.guid);
                 const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
@@ -4746,8 +4796,9 @@ ${this.buildTimelineHtml(group.key)}`;
             } catch (e) {
                 setIpCell(item.tdIp, 'fel');
                 console.warn(CFG.logPrefix, 'Device fetch failed', item.guid, e);
+                logAppend('error', 'Enhetsuppslag misslyckades: ' + item.guid + ' — ' + e.message, 'inu');
             }
-        }
+        });
     }
 
     // Device cell → form field mapping (cell indices are: 0=Namn, 1=Typ, 2=Tillstånd, 3=Beskrivning, 4=IP, 5=Port, 6=Slave)
@@ -6576,7 +6627,11 @@ ${this.buildTimelineHtml(group.key)}`;
         }
 
         fetchValues();
-        setInterval(fetchValues, 2000);
+        // Skip the body when the tab is hidden — diagrams aren't realtime-
+        // critical, and a backgrounded tab burns network for nothing. We
+        // catch back up immediately on visibilitychange below.
+        setInterval(() => { if (!document.hidden) fetchValues(); }, 2000);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchValues(); });
 
         function extractPoid(el) {
             const div = el.closest('.wpCompObject');
@@ -6738,8 +6793,10 @@ ${this.buildTimelineHtml(group.key)}`;
         console.log(CFG.logPrefix, 'Diagram tooltip active for', pageId, '(' + wpp.querySelectorAll('.wpCompObject').length + ' components)');
 
         // Watch for SPA navigation: if the iframe document changes, reset and
-        // re-initialize. Check every 2 seconds alongside the value refresh.
+        // re-initialize. Check every 2 seconds alongside the value refresh —
+        // skip the check when the tab is hidden (no observable change anyway).
         setInterval(() => {
+            if (document.hidden) return;
             const curDoc = iframe.contentDocument || iframe.contentWindow?.document;
             if (curDoc && curDoc !== _diagramTooltipDoc) {
                 _diagramTooltipDoc = null; // reset so next call re-initializes
@@ -6789,12 +6846,19 @@ ${this.buildTimelineHtml(group.key)}`;
         if(tb) {
             // Single trailing-edge debounce — DataTables can fire several
             // childList mutations in quick succession during a redraw.
+            // Share one row enumeration across all 6 helpers so we do a
+            // single querySelectorAll instead of one per helper.
             let _redrawTimer = null;
             const onMutate = () => {
                 clearTimeout(_redrawTimer);
                 _redrawTimer = setTimeout(() => {
-                    addColumns(); updSummary(); applyFilter();
-                    syncSelCheckboxes(); addColumnFilters(); reapplyPendingDeletes();
+                    const rows = tb.querySelectorAll('tr.tag');
+                    addColumns(rows);
+                    updSummary(rows);
+                    applyFilter(rows);
+                    syncSelCheckboxes(rows);
+                    addColumnFilters();
+                    reapplyPendingDeletes(rows);
                 }, 50);
             };
             trackObserver(new MutationObserver(onMutate)).observe(tb, { childList:true });
@@ -7018,7 +7082,28 @@ body.dark .inu-pid-stat-hi span:first-child { color:#ddd; }
         document.head.appendChild(s);
     }
 
+    // Cache for trend fetches. The PID advisor commonly re-fetches the same
+    // (tag, window, now) combo when the user opens → closes → re-opens to
+    // tweak inputs. Key buckets `from`/`to` to 60s so repeated opens within
+    // the same minute share a single response. Entries older than 5 min are
+    // pruned on each insert.
+    const _trendCache = new Map();
+    const TREND_CACHE_TTL_MS = 5 * 60 * 1000;
+    const TREND_CACHE_BUCKET_MS = 60 * 1000;
+    function _trendCacheKey(tagName, fromMs, toMs) {
+        const bucket = ms => Math.floor(ms / TREND_CACHE_BUCKET_MS) * TREND_CACHE_BUCKET_MS;
+        return `${tagName}|${bucket(fromMs)}|${bucket(toMs)}`;
+    }
+    function _trendCachePrune() {
+        const cutoff = Date.now() - TREND_CACHE_TTL_MS;
+        for (const [k, v] of _trendCache) if (v.ts < cutoff) _trendCache.delete(k);
+    }
+
     async function fetchTrend(tagName, fromMs, toMs) {
+        const cacheKey = _trendCacheKey(tagName, fromMs, toMs);
+        const cached = _trendCache.get(cacheKey);
+        if (cached && (Date.now() - cached.ts) < TREND_CACHE_TTL_MS) return cached.data;
+
         const enc = t => encodeURIComponent(t);
         // WebPort confirmed endpoint: /trend/gettrenddata
         // Date format: "YYYY-MM-DD HH:MM" (local time, no seconds)
@@ -7035,7 +7120,10 @@ body.dark .inu-pid-stat-hi span:first-child { color:#ddd; }
                 const d = await r.json();
                 // Response shape: { trend: [{ data: [[ts_ms, val], ...] }] }
                 if (d && d.trend && Array.isArray(d.trend) && d.trend[0]?.data?.length >= 2) {
-                    return d.trend[0].data.map(p => ({ ts: p[0], val: parseFloat(p[1]) })).filter(p => !isNaN(p.val));
+                    const out = d.trend[0].data.map(p => ({ ts: p[0], val: parseFloat(p[1]) })).filter(p => !isNaN(p.val));
+                    _trendCachePrune();
+                    _trendCache.set(cacheKey, { ts: Date.now(), data: out });
+                    return out;
                 }
             }
         } catch { /* fall through to probe */ }
