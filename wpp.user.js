@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.0045
+// @version      7.4.20260503.0047
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -7208,21 +7208,49 @@ ${this.buildTimelineHtml(group.key)}`;
         }
     }
 
+    // Wait for the WebPort editor iframe to have laid out its SVG symbols
+    // before our top-window DOM work runs. Any synchronous mutation during
+    // the layout pass races with WebPort's renderer and produces sub-pixel
+    // offsets + lost rotations. We poll for .wpCompObject in the iframe
+    // (the symbols themselves), then wait two rAFs so layout settles, then
+    // fire the callback. Safety timeout fires the callback anyway after
+    // 8 s so we don't strand the UI on a slow / blocked iframe.
+    function _waitForEditorIframeReady(cb) {
+        let fired = false;
+        const fire = () => {
+            if (fired) return;
+            fired = true;
+            // Two animation frames: first lets the latest paint commit,
+            // second confirms it stuck before we mutate the navbar.
+            requestAnimationFrame(() => requestAnimationFrame(cb));
+        };
+        const findIframe = () => document.querySelector('#content iframe');
+        const checkSymbols = () => {
+            const f = findIframe();
+            const doc = f && f.contentDocument;
+            if (doc && doc.querySelector('.wpCompObject')) { fire(); return true; }
+            return false;
+        };
+        if (checkSymbols()) return;
+        const t = setInterval(() => {
+            if (fired) { clearInterval(t); return; }
+            if (checkSymbols()) clearInterval(t);
+        }, 100);
+        setTimeout(() => { clearInterval(t); fire(); }, 8000);
+    }
+
     function _routePage() {
         if (isInuTagPage())     { _maybeInjectBrandPill(); _initInuTagPage(); return true; }
         if (isDevicePage())     { _maybeInjectBrandPill(); initDevicePage();  return true; }
         if (isPageEditorPage()) {
-            // Edit mode hosts an iframe that lays out SVG symbols at non-100%
-            // scale. Any DOM mutation in the top window during that layout
-            // window (~0–1500 ms) races with WebPort's render and produces
-            // sub-pixel position offsets + lost rotations on symbols.
-            // Defer ALL our top-window DOM work behind that window so we
-            // always run after the iframe has settled.
-            setTimeout(() => {
+            // Edit mode: defer all top-window DOM work until WebPort's iframe
+            // has actually rendered its symbols. Earlier we used a fixed 1500 ms
+            // timer which mostly worked but still raced occasionally.
+            _waitForEditorIframeReady(() => {
                 if (!inuOff('editor')) initPageEditor();
                 if (!inuOff('tooltip')) initDiagramTooltip();
                 _maybeInjectBrandPill();
-            }, 1500);
+            });
             return true;
         }
         return false;
