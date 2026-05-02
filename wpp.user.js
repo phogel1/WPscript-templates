@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.0036
+// @version      7.4.20260503.0039
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -195,7 +195,9 @@
         if (stack) return stack;
         stack = document.createElement('div');
         stack.id = 'inu-pill-stack';
-        stack.style.cssText = 'position:fixed;top:9px;right:200px;z-index:99999;display:flex;flex-direction:row;gap:8px;align-items:center;pointer-events:none;';
+        // Right offset clears WebPort's top-nav icon cluster (settings, help,
+        // user dropdown, apps grid). Increase if WebPort adds more icons.
+        stack.style.cssText = 'position:fixed;top:9px;right:220px;z-index:99999;display:flex;flex-direction:row;gap:8px;align-items:center;pointer-events:none;';
         document.body.appendChild(stack);
         return stack;
     }
