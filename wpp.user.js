@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.0007
+// @version      7.4.20260503.0021
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -22,6 +22,28 @@
     // our polling loop + DOM queries inside the iframe disrupts WebPort's
     // component rendering (rotations, positioning, SVG symbol loading).
     if (window !== window.top) return;
+
+    // ── Kill-switch URL params (debug/bisect) ─────────────────────
+    // Pass ?inu_off=all on the WebPort URL to disable the script
+    // entirely, or a comma-separated list of subsystems to disable
+    // individually (e.g. ?inu_off=editor,observers). Subsystem keys:
+    //   all        — abort init() entirely
+    //   editor     — skip initPageEditor (page edit mode)
+    //   content    — skip initContentPage (page view mode)
+    //   tooltip    — skip initDiagramTooltip
+    //   grid       — skip editorApplyGrid + grid branch in mutation observer
+    //   observers  — skip both MutationObservers in initPageEditor
+    //   focus      — skip iframe.contentWindow.focus()
+    //   tabindex   — skip iDoc.body.setAttribute('tabindex','-1')
+    //   midclick   — skip the middle-click capture-phase mousedown/auxclick handlers
+    const _INU_OFF = (() => {
+        const raw = new URLSearchParams(location.search).get('inu_off') || '';
+        const set = new Set(raw.split(',').map(s => s.trim()).filter(Boolean));
+        if (set.size) console.warn('[INU] kill-switch active: inu_off=', [...set].join(','));
+        return set;
+    })();
+    function inuOff(name) { return _INU_OFF.has('all') || _INU_OFF.has(name); }
+    if (inuOff('all')) return;
 
     // Only run on Kiona WebPort pages
     function isWebPort() {
@@ -6561,26 +6583,28 @@ ${this.buildTimelineHtml(group.key)}`;
             injectEditorStyles(iDoc);
             injectEditorToolbar(iframe);
 
-            editorApplyGrid();
+            if (!inuOff('grid')) editorApplyGrid();
             editorLoadLocks();
             editorApplyAllLocks();
             editorUpdateUndoButtons();
             editorUpdateZoom();
 
             const wpp = iDoc.getElementById('wpp');
-            new MutationObserver(muts => {
-                for (const m of muts) {
-                    if (m.type === 'attributes' && m.attributeName === 'class') {
-                        const el = m.target;
-                        if (!el.classList.contains('wpCompObject') || el.classList.contains('ui-draggable-disabled')) continue;
-                        if (editorGridEnabled && $(el).data('ui-draggable')) $(el).draggable('option', 'grid', [editorGridSize, editorGridSize]);
-                        if (_editorLocked[el.id]) editorApplyLock(el, true);
+            if (!inuOff('observers')) {
+                new MutationObserver(muts => {
+                    for (const m of muts) {
+                        if (m.type === 'attributes' && m.attributeName === 'class') {
+                            const el = m.target;
+                            if (!el.classList.contains('wpCompObject') || el.classList.contains('ui-draggable-disabled')) continue;
+                            if (!inuOff('grid') && editorGridEnabled && $(el).data('ui-draggable')) $(el).draggable('option', 'grid', [editorGridSize, editorGridSize]);
+                            if (_editorLocked[el.id]) editorApplyLock(el, true);
+                        }
                     }
-                }
-            }).observe(wpp, { subtree: true, attributes: true, attributeFilter: ['class'] });
-            // Zoom observer — watch #wpp style for transform changes
-            new MutationObserver(() => editorUpdateZoom())
-                .observe(wpp, { attributes: true, attributeFilter: ['style'] });
+                }).observe(wpp, { subtree: true, attributes: true, attributeFilter: ['class'] });
+                // Zoom observer — watch #wpp style for transform changes
+                new MutationObserver(() => editorUpdateZoom())
+                    .observe(wpp, { attributes: true, attributeFilter: ['style'] });
+            }
 
             // Middle-mouse-button pan.
             // WebPort stores pan as "translate(Xpx, Ypx) scale(s, s)" on #wpp inline style.
@@ -6608,28 +6632,30 @@ ${this.buildTimelineHtml(group.key)}`;
                     wpp.style.transform = `translate(${tx}px, ${ty}px)`;
                 }
             };
-            iDoc.addEventListener('mousedown', e => {
-                if (e.button !== 1) return;
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                const [origTx, origTy] = getWppTranslate();
-                const startX = e.clientX;
-                const startY = e.clientY;
-                iDoc.body.style.cursor = 'grabbing';
-                const onMove = mv => {
-                    setWppTranslate(origTx + (mv.clientX - startX), origTy + (mv.clientY - startY));
-                };
-                const onUp = up => {
-                    if (up.button !== 1) return;
-                    iDoc.removeEventListener('mousemove', onMove, true);
-                    iDoc.removeEventListener('mouseup',   onUp,   true);
-                    iDoc.body.style.cursor = '';
-                };
-                iDoc.addEventListener('mousemove', onMove, true);
-                iDoc.addEventListener('mouseup',   onUp,   true);
-            }, true);
-            // Suppress browser autoscroll overlay on middle click
-            iDoc.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); }, true);
+            if (!inuOff('midclick')) {
+                iDoc.addEventListener('mousedown', e => {
+                    if (e.button !== 1) return;
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    const [origTx, origTy] = getWppTranslate();
+                    const startX = e.clientX;
+                    const startY = e.clientY;
+                    iDoc.body.style.cursor = 'grabbing';
+                    const onMove = mv => {
+                        setWppTranslate(origTx + (mv.clientX - startX), origTy + (mv.clientY - startY));
+                    };
+                    const onUp = up => {
+                        if (up.button !== 1) return;
+                        iDoc.removeEventListener('mousemove', onMove, true);
+                        iDoc.removeEventListener('mouseup',   onUp,   true);
+                        iDoc.body.style.cursor = '';
+                    };
+                    iDoc.addEventListener('mousemove', onMove, true);
+                    iDoc.addEventListener('mouseup',   onUp,   true);
+                }, true);
+                // Suppress browser autoscroll overlay on middle click
+                iDoc.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); }, true);
+            }
 
             const panel = iDoc.getElementById('wp_editpanel');
             $(panel).on('selectablestop', () => {
@@ -6664,12 +6690,12 @@ ${this.buildTimelineHtml(group.key)}`;
                 }, 300);
             });
 
-            if (!iDoc.body.hasAttribute('tabindex')) iDoc.body.setAttribute('tabindex', '-1');
+            if (!inuOff('tabindex') && !iDoc.body.hasAttribute('tabindex')) iDoc.body.setAttribute('tabindex', '-1');
             editorBindKeyboard(iDoc);
             // editorInitTooltip disabled — replaced by diagram tooltip (initDiagramTooltip)
             // which shows the same label + all related live tag values in one tooltip.
             // Called from the delayed setTimeout in init(), not here.
-            iframe.contentWindow.focus();
+            if (!inuOff('focus')) iframe.contentWindow.focus();
 
             editorUpdateToolbarContext();
         };
@@ -7178,7 +7204,13 @@ ${this.buildTimelineHtml(group.key)}`;
         _maybeInjectBrandPill();
         if (isInuTagPage())     { _initInuTagPage(); return true; }
         if (isDevicePage())     { initDevicePage();  return true; }
-        if (isPageEditorPage()) { setTimeout(() => { initPageEditor(); initDiagramTooltip(); }, 1500); return true; }
+        if (isPageEditorPage()) {
+            setTimeout(() => {
+                if (!inuOff('editor')) initPageEditor();
+                if (!inuOff('tooltip')) initDiagramTooltip();
+            }, 1500);
+            return true;
+        }
         return false;
     }
 
@@ -7188,8 +7220,8 @@ ${this.buildTimelineHtml(group.key)}`;
         if (isContentPage()) {
             setTimeout(() => {
                 injectBrandPill(); checkSources(); hookToastr(); initLogPanel();
-                initContentPage();
-                initDiagramTooltip();
+                if (!inuOff('content')) initContentPage();
+                if (!inuOff('tooltip')) initDiagramTooltip();
             }, 2000);
             return;
         }
