@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.0047
+// @version      7.4.20260503.0051
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -80,9 +80,11 @@
     // PAGE DETECTION
     // ============================================================
     function isInuTagPage() {
+        // No row requirement — toolbar / column filters / template modal must
+        // render on a fresh install with zero tags. The MutationObserver on
+        // tbody picks up rows as they're added later.
         return !!(
             document.getElementById('tagtable') &&
-            document.querySelector('#tagtable tbody tr.tag') &&
             typeof unsafeWindow.SendFormMulti === 'function'
         );
     }
