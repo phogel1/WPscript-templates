@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.0039
+// @version      7.4.20260503.0043
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -7218,13 +7218,19 @@ ${this.buildTimelineHtml(group.key)}`;
     }
 
     function _routePage() {
-        _maybeInjectBrandPill();
-        if (isInuTagPage())     { _initInuTagPage(); return true; }
-        if (isDevicePage())     { initDevicePage();  return true; }
+        if (isInuTagPage())     { _maybeInjectBrandPill(); _initInuTagPage(); return true; }
+        if (isDevicePage())     { _maybeInjectBrandPill(); initDevicePage();  return true; }
         if (isPageEditorPage()) {
+            // Edit mode hosts an iframe that lays out SVG symbols at non-100%
+            // scale. Any DOM mutation in the top window during that layout
+            // window (~0–1500 ms) races with WebPort's render and produces
+            // sub-pixel position offsets + lost rotations on symbols.
+            // Defer ALL our top-window DOM work behind that window so we
+            // always run after the iframe has settled.
             setTimeout(() => {
                 if (!inuOff('editor')) initPageEditor();
                 if (!inuOff('tooltip')) initDiagramTooltip();
+                _maybeInjectBrandPill();
             }, 1500);
             return true;
         }
@@ -7251,7 +7257,6 @@ ${this.buildTimelineHtml(group.key)}`;
         if (_routePage()) return;
         if (inuOff('bodyobs')) return;
         const bodyObs = new MutationObserver(() => {
-            _maybeInjectBrandPill();
             if (_routePage()) bodyObs.disconnect();
         });
         if (document.body) bodyObs.observe(document.body, { childList:true, subtree:true });
