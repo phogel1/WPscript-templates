@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260502.2359
+// @version      7.4.20260503.0007
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -366,7 +366,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
 .tpl-hdr h3 { margin:0; font-size:15px; flex:1; }
 .tpl-hdr .tpl-close { background:none; border:none; font-size:18px; cursor:pointer; color:#666; padding:2px 8px; border-radius:4px; }
 .tpl-hdr .tpl-close:hover { background:#f0f0f0; }
-.tpl-pickers { display:grid; grid-template-columns:1fr 1.3fr 0.9fr 1.2fr; gap:10px; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #eee; }
+.tpl-pickers { display:grid; grid-template-columns:1fr 1.3fr 1.4fr 1.2fr; gap:10px; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #eee; align-items:end; }
 .tpl-slaves-row { display:none; flex-direction:column; gap:8px; margin-bottom:14px; padding:8px 12px; background:#f8f9ff; border:1px solid #e3e6f3; border-radius:6px; }
 .tpl-slaves-row.on { display:flex; }
 .tpl-slaves-row .tpl-slaves-hdr { display:flex; justify-content:space-between; align-items:center; gap:12px; }
@@ -396,7 +396,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
 .tpl-slaves-tbl .tpl-slaves-tbl-act button:hover { background:#fef2f2; color:#b91c1c; }
 .tpl-slaves-tbl-add { margin-top:6px; padding:5px 12px; border:1px dashed #b0b6d4; background:#fff; color:#3a4ba0; cursor:pointer; font-size:11px; font-weight:600; border-radius:4px; }
 .tpl-slaves-tbl-add:hover { background:#eef1ff; }
-.tpl-pickers > div { min-width:0; }
+.tpl-pickers > div { min-width:0; display:flex; flex-direction:column; justify-content:flex-end; }
 .tpl-pickers label { display:block; font-size:10px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
 .tpl-pickers select, .tpl-pickers input { width:100%; padding:5px 7px; border:1px solid #999; border-radius:4px; font-size:13px; font-weight:500; box-sizing:border-box; background:#fff; color:#222 !important; }
 .tpl-pickers select:disabled, .tpl-pickers input:disabled { background:#f5f5f5; color:#666 !important; }
@@ -1566,7 +1566,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     // lazy-fetched from TEMPLATE_BASE_URL and cached in GM storage.
     const TEMPLATE_BASE_URL = 'https://phogel1.github.io/static-assets/';
     const TEMPLATE_INDEX = {
-        version: '2026-05-02.2',
+        version: '2026-05-02.3',
         manufacturers: [
             {
                 id: 'ivprodukt', name: 'IVProdukt',

@@ -6,7 +6,7 @@
   "source": "regio_midi_ma30008_en.pdf (Rev. E, 2026-01-13)",
   "sourceVersion": "Regio Midi application v1.7",
   "notes": "Generell mall för hela Regio Midi-familjen v1.7. Samma firmware och Modbus-karta i alla 14 hårdvarumodeller — skillnaden ligger i fysiska I/O (analog 0-10 V vs 3-stegs fläktreläer DO1-DO3 vs 3-punkts DO1-DO5), närvaroknapp, display, börvärdesratt, samt om CO₂-givare är inbyggd, extern eller saknas. Välj rätt modellvariant i 'Regulator-modell' så filtreras irrelevanta dropdowns automatiskt med hjälp av hjälptexterna nedan. Variantöversikten utesluter '-BLACK' eftersom det enbart är svart hölje. RCC-modeller har inbyggd CO₂-givare; RC-…3DOC/…3DFOC har extern CO₂-ingång på AI2; RC-C3 / RC-C3H / RC-C3O har varken inbyggd eller extern CO₂. WebPort-konvention för adresserna: Diskreta ingångar = 10000+offset, Coils = 0+offset, Input registers = 30000+offset, Holding registers = 40000+offset (PDF:n använder 1-baserade offsets). multiSlave är aktiverat: userscriptet sätter slav-id framför adressen.",
-  "defaultDevicePrefix": "RC",
+  "defaultDevicePrefix": "HUSXX_ASXX_RUM##",
   "multiSlave": true,
 
   "tags": {
