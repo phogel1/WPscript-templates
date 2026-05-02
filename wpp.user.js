@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.0030
+// @version      7.4.20260503.0033
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -189,15 +189,17 @@
 
     function injectBrandPill() {
         if (document.getElementById('inu-wp-pill')) return;
-        const topMenu = document.getElementById('top-menu');
-        if (!topMenu) return;
+        if (!document.getElementById('top-menu')) return;
+        // Mounted as a fixed-position element in document.body — inserting into
+        // the WebPort navbar's child list reflows the editor iframe and breaks
+        // symbol rendering (sub-pixel offsets, lost rotations). Verified via
+        // inu_off=pill bisect.
         const pill = document.createElement('span');
         pill.id = 'inu-wp-pill';
         pill.innerHTML = INU_LOGO_SVG + '<span style="margin-left:5px;">WebPort+</span>';
-        pill.style.cssText = 'padding:3px 10px;border-radius:3px;font-size:10px;font-weight:600;color:#fff;background:#1b5e20;user-select:none;cursor:default;align-self:center;display:inline-flex;align-items:center;';
+        pill.style.cssText = 'position:fixed;top:9px;right:340px;z-index:99999;padding:3px 10px;border-radius:3px;font-size:10px;font-weight:600;color:#fff;background:#1b5e20;user-select:none;cursor:default;display:inline-flex;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,0.25);';
         pill.title = 'v' + CFG.version;
-        const nav = topMenu.parentElement;
-        if (nav) nav.insertBefore(pill, nav.firstChild);
+        document.body.appendChild(pill);
     }
 
     function injectStyles() {
