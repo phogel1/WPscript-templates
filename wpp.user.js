@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.0021
+// @version      7.4.20260503.0025
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -36,6 +36,11 @@
     //   focus      — skip iframe.contentWindow.focus()
     //   tabindex   — skip iDoc.body.setAttribute('tabindex','-1')
     //   midclick   — skip the middle-click capture-phase mousedown/auxclick handlers
+    //   pill       — skip injectBrandPill (top-menu INU button)
+    //   sources    — skip checkSources (tag source checker)
+    //   toastr     — skip hookToastr (toastr wrapper)
+    //   logpanel   — skip initLogPanel (activity log panel)
+    //   bodyobs    — skip the document.body MutationObserver fallback
     const _INU_OFF = (() => {
         const raw = new URLSearchParams(location.search).get('inu_off') || '';
         const set = new Set(raw.split(',').map(s => s.trim()).filter(Boolean));
@@ -7196,7 +7201,10 @@ ${this.buildTimelineHtml(group.key)}`;
 
     function _maybeInjectBrandPill() {
         if (isWebPort() && document.getElementById('top-menu') && !document.getElementById('inu-wp-pill')) {
-            injectBrandPill(); checkSources(); hookToastr(); initLogPanel();
+            if (!inuOff('pill'))    injectBrandPill();
+            if (!inuOff('sources')) checkSources();
+            if (!inuOff('toastr'))  hookToastr();
+            if (!inuOff('logpanel')) initLogPanel();
         }
     }
 
@@ -7219,7 +7227,10 @@ ${this.buildTimelineHtml(group.key)}`;
         // Defer our init briefly to avoid racing with component rendering.
         if (isContentPage()) {
             setTimeout(() => {
-                injectBrandPill(); checkSources(); hookToastr(); initLogPanel();
+                if (!inuOff('pill'))    injectBrandPill();
+                if (!inuOff('sources')) checkSources();
+                if (!inuOff('toastr'))  hookToastr();
+                if (!inuOff('logpanel')) initLogPanel();
                 if (!inuOff('content')) initContentPage();
                 if (!inuOff('tooltip')) initDiagramTooltip();
             }, 2000);
@@ -7229,6 +7240,7 @@ ${this.buildTimelineHtml(group.key)}`;
         // Try once now, then watch the body for the elements we depend on.
         // No more 30-second polling loop running on every WebPort page.
         if (_routePage()) return;
+        if (inuOff('bodyobs')) return;
         const bodyObs = new MutationObserver(() => {
             _maybeInjectBrandPill();
             if (_routePage()) bodyObs.disconnect();
