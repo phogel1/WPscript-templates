@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.0033
+// @version      7.4.20260503.0036
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -187,19 +187,28 @@
     // INU logo — inlined from INUlogo_Black.svg, uses currentColor for theming
     const INU_LOGO_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 546.84 135.95" style="height:12px;vertical-align:middle;fill:currentColor;"><g transform="matrix(0.13333333,0,0,-0.13333333,0,135.94667)"><path d="m 2770.98,393.707 c 10.05,46.367 15.77,66.434 25.13,106.367 l 66.63,244.832 c 44.31,191.399 -44.42,252.969 -184.13,252.969 h -147.04 l -162.47,-597 c -0.67,-2.402 -1.13,-4.777 -1.71,-7.168 h 403.59"/><path d="M 2358.14,317.586 C 2322.51,141.43 2529.86,0 2784.76,0 h 512.63 c 292.81,0 581.48,180.395 641.48,400.875 l 162.47,597 H 3701.33 L 3565.86,500.074 C 3538.41,399.242 3406.4,316.742 3272.5,316.742 l -914.36,0.844"/><path d="M 368.418,15.4883 H 170.434 C 47.3047,15.4883 -25.3438,115.309 8.16797,238.434 L 116.559,636.695 H 537.477 L 368.418,15.4883"/><path d="M 555.551,707.961 H 134.633 l 82.762,289.914 H 638.316 L 555.551,707.961"/><path d="m 703.086,630.82 c -1.27,-4.047 -2.996,-8.007 -4.109,-12.097 L 536.484,15.4883 H 936.5 l 137.11,509.9607 c 10.66,39.172 18.57,67.231 30.43,105.371 H 703.086"/><path d="m 1845.48,1019.61 h -601.55 c -298.387,0 -445.125,-107.762 -507.438,-312.672 l 913.298,1.851 c 133.9,0 221.01,-82.5 193.57,-183.328 l -74.62,-274.195 c -34.5,-126.77 40.3,-229.5433 167.07,-229.5433 h 170.48 l 162.47,597.0043 c 60,220.484 -130.46,400.883 -423.28,400.883"/></g></svg>';
 
+    // Shared container for our top-right pills. Mounted in document.body as a
+    // fixed-position flex row so adding pills doesn't reflow WebPort's navbar
+    // (which would break editor iframe symbol rendering).
+    function _ensurePillStack() {
+        let stack = document.getElementById('inu-pill-stack');
+        if (stack) return stack;
+        stack = document.createElement('div');
+        stack.id = 'inu-pill-stack';
+        stack.style.cssText = 'position:fixed;top:9px;right:200px;z-index:99999;display:flex;flex-direction:row;gap:8px;align-items:center;pointer-events:none;';
+        document.body.appendChild(stack);
+        return stack;
+    }
+
     function injectBrandPill() {
         if (document.getElementById('inu-wp-pill')) return;
         if (!document.getElementById('top-menu')) return;
-        // Mounted as a fixed-position element in document.body — inserting into
-        // the WebPort navbar's child list reflows the editor iframe and breaks
-        // symbol rendering (sub-pixel offsets, lost rotations). Verified via
-        // inu_off=pill bisect.
         const pill = document.createElement('span');
         pill.id = 'inu-wp-pill';
         pill.innerHTML = INU_LOGO_SVG + '<span style="margin-left:5px;">WebPort+</span>';
-        pill.style.cssText = 'position:fixed;top:9px;right:340px;z-index:99999;padding:3px 10px;border-radius:3px;font-size:10px;font-weight:600;color:#fff;background:#1b5e20;user-select:none;cursor:default;display:inline-flex;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,0.25);';
+        pill.style.cssText = 'padding:3px 10px;border-radius:3px;font-size:10px;font-weight:600;color:#fff;background:#1b5e20;user-select:none;cursor:default;display:inline-flex;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,0.25);pointer-events:auto;';
         pill.title = 'v' + CFG.version;
-        document.body.appendChild(pill);
+        _ensurePillStack().appendChild(pill);
     }
 
     function injectStyles() {
@@ -3290,14 +3299,10 @@ ${totalHtml}${pillsHtml ? `<span class="inf">| Aktiva filter:</span>${pillsHtml}
 
     function showSourceBanner(dirty) {
         if (document.getElementById('inu-src-pill')) return;
-        // Mounted in body as a fixed-position element rather than inside the
-        // WebPort navbar, because mutating the navbar's child list reflows the
-        // editor iframe and breaks symbol rendering (sub-pixel offsets, lost
-        // rotations, missing indications) — verified via inu_off=sources bisect.
         if (!document.getElementById('inu-src-pill-style')) {
             const s = document.createElement('style');
             s.id = 'inu-src-pill-style';
-            s.textContent = '#inu-src-pill{position:fixed;top:9px;right:200px;z-index:99999;padding:4px 10px;border-radius:3px;font-size:11px;font-weight:600;color:#fff;background:#b84700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);}#inu-src-pill:hover{background:#e65100;color:#fff;}';
+            s.textContent = '#inu-src-pill{padding:4px 10px;border-radius:3px;font-size:11px;font-weight:600;color:#fff;background:#b84700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);pointer-events:auto;}#inu-src-pill:hover{background:#e65100;color:#fff;}';
             document.head.appendChild(s);
         }
         const pill = document.createElement('a');
@@ -3306,7 +3311,7 @@ ${totalHtml}${pillsHtml ? `<span class="inf">| Aktiva filter:</span>${pillsHtml}
         const tip = dirty.map(d => d.name + ' (' + d.state + ')').join('\n');
         pill.title = tip;
         pill.innerHTML = '<i class="fa fa-exclamation-triangle"></i> ' + dirty.length + ' st osparade tagglistor';
-        document.body.appendChild(pill);
+        _ensurePillStack().appendChild(pill);
     }
 
     // ============================================================
