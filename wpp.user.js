@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260502.1211
+// @version      7.3.20260502.1215
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -1729,12 +1729,12 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         });
     }
 
-    // Batch-create with sequential dispatch + progress callback.
-    // progressCb(done, total, failing[]) fires after each tag.
+    // Batch-create with concurrency-capped dispatch + progress callback.
+    // progressCb(done, total, failing[]) fires after each tag completes (in any order).
     async function createTagBatch(tags, seedTagName, progressCb) {
         const failing = [];
-        for (let i = 0; i < tags.length; i++) {
-            const t = tags[i];
+        let done = 0;
+        const results = await runWithConcurrency(tags, BULK_CONCURRENCY, async (t) => {
             try {
                 await createTagFromTemplate(t, seedTagName);
                 logAppend('success', `Skapade tagg: ${t.name}`, 'inu');
@@ -1742,11 +1742,14 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 console.warn(CFG.logPrefix, 'create failed', t.name, e);
                 logAppend('error', `Misslyckades: ${t.name} — ${e.message}`, 'inu');
                 failing.push({ name: t.name, error: e.message });
+                throw e; // mark as failed in results — already recorded above
+            } finally {
+                done++;
+                if (progressCb) progressCb(done, tags.length, failing);
             }
-            if (progressCb) progressCb(i + 1, tags.length, failing);
-            // Small delay to avoid hammering the server
-            await new Promise(r => setTimeout(r, 80));
-        }
+        });
+        // results array is unused — failing[] is the source of truth.
+        void results;
         return failing;
     }
 
