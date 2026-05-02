@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260502.2233
+// @version      7.4.20260502.2355
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -367,15 +367,35 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
 .tpl-hdr .tpl-close { background:none; border:none; font-size:18px; cursor:pointer; color:#666; padding:2px 8px; border-radius:4px; }
 .tpl-hdr .tpl-close:hover { background:#f0f0f0; }
 .tpl-pickers { display:grid; grid-template-columns:1fr 1.3fr 0.9fr 1.2fr; gap:10px; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #eee; }
-.tpl-slaves-row { display:none; grid-template-columns:auto 240px 1fr; gap:12px; align-items:center; margin-bottom:14px; padding:8px 12px; background:#f8f9ff; border:1px solid #e3e6f3; border-radius:6px; }
-.tpl-slaves-row.on { display:grid; }
+.tpl-slaves-row { display:none; flex-direction:column; gap:8px; margin-bottom:14px; padding:8px 12px; background:#f8f9ff; border:1px solid #e3e6f3; border-radius:6px; }
+.tpl-slaves-row.on { display:flex; }
+.tpl-slaves-row .tpl-slaves-hdr { display:flex; justify-content:space-between; align-items:center; gap:12px; }
 .tpl-slaves-row label { font-size:10px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.4px; margin:0; }
-.tpl-slaves-row input { padding:5px 7px; border:1px solid #999; border-radius:4px; font-size:13px; font-weight:500; background:#fff; color:#222 !important; box-sizing:border-box; width:100%; font-family:monospace; }
-.tpl-slaves-row input:focus { outline:2px solid #5b6abf; outline-offset:1px; border-color:#5b6abf; }
-.tpl-slaves-row.tpl-err input { border-color:#b91c1c; background:#fef2f2; }
+.tpl-slaves-row > input, .tpl-slaves-row .tpl-slaves-range > input { padding:5px 7px; border:1px solid #999; border-radius:4px; font-size:13px; font-weight:500; background:#fff; color:#222 !important; box-sizing:border-box; width:100%; font-family:monospace; }
+.tpl-slaves-row > input:focus, .tpl-slaves-row .tpl-slaves-range > input:focus { outline:2px solid #5b6abf; outline-offset:1px; border-color:#5b6abf; }
+.tpl-slaves-row.tpl-err > input, .tpl-slaves-row.tpl-err .tpl-slaves-range > input { border-color:#b91c1c; background:#fef2f2; }
+.tpl-slaves-row .tpl-slaves-range { display:none; }
+.tpl-slaves-row .tpl-slaves-range.on { display:block; }
 .tpl-slaves-row .tpl-slaves-help { font-size:11px; color:#666; line-height:1.3; }
 .tpl-slaves-row .tpl-slaves-help code { font-family:monospace; background:#fff; padding:1px 4px; border-radius:2px; color:#3a4ba0; border:1px solid #e3e6f3; }
-.tpl-slaves-row .tpl-slaves-summary { font-size:11px; color:#3a4ba0; font-weight:600; margin-top:2px; }
+.tpl-slaves-row .tpl-slaves-summary { font-size:11px; color:#3a4ba0; font-weight:600; }
+.tpl-slaves-row .tpl-slaves-modes { display:flex; gap:0; align-items:center; }
+.tpl-slaves-row .tpl-slaves-modes button { padding:4px 10px; border:1px solid #b0b6d4; background:#fff; color:#3a4ba0; cursor:pointer; font-size:11px; font-weight:600; }
+.tpl-slaves-row .tpl-slaves-modes button:first-child { border-radius:4px 0 0 4px; }
+.tpl-slaves-row .tpl-slaves-modes button:last-child { border-radius:0 4px 4px 0; border-left:0; }
+.tpl-slaves-row .tpl-slaves-modes button.on { background:#3a4ba0; color:#fff; border-color:#3a4ba0; }
+.tpl-slaves-tbl { display:none; width:100%; border-collapse:collapse; font-size:12px; background:#fff; border:1px solid #e3e6f3; border-radius:4px; overflow:hidden; }
+.tpl-slaves-tbl.on { display:table; }
+.tpl-slaves-tbl th { background:#eef1ff; padding:5px 8px; text-align:left; font-size:10px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.4px; border-bottom:1px solid #e3e6f3; }
+.tpl-slaves-tbl td { padding:3px 6px; border-bottom:1px solid #f0f2f8; vertical-align:middle; }
+.tpl-slaves-tbl input { width:100%; padding:3px 6px; border:1px solid #ccc; border-radius:3px; font-family:monospace; font-size:12px; box-sizing:border-box; }
+.tpl-slaves-tbl input.tpl-err { border-color:#b91c1c; background:#fef2f2; }
+.tpl-slaves-tbl tr:last-child td { border-bottom:0; }
+.tpl-slaves-tbl .tpl-slaves-tbl-act { width:28px; text-align:center; }
+.tpl-slaves-tbl .tpl-slaves-tbl-act button { width:22px; height:22px; padding:0; border:0; background:transparent; color:#999; cursor:pointer; font-size:14px; line-height:1; border-radius:3px; }
+.tpl-slaves-tbl .tpl-slaves-tbl-act button:hover { background:#fef2f2; color:#b91c1c; }
+.tpl-slaves-tbl-add { margin-top:6px; padding:5px 12px; border:1px dashed #b0b6d4; background:#fff; color:#3a4ba0; cursor:pointer; font-size:11px; font-weight:600; border-radius:4px; }
+.tpl-slaves-tbl-add:hover { background:#eef1ff; }
 .tpl-pickers > div { min-width:0; }
 .tpl-pickers label { display:block; font-size:10px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
 .tpl-pickers select, .tpl-pickers input { width:100%; padding:5px 7px; border:1px solid #999; border-radius:4px; font-size:13px; font-weight:500; box-sizing:border-box; background:#fff; color:#222 !important; }
@@ -1546,7 +1566,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     // lazy-fetched from TEMPLATE_BASE_URL and cached in GM storage.
     const TEMPLATE_BASE_URL = 'https://phogel1.github.io/static-assets/';
     const TEMPLATE_INDEX = {
-        version: '2026-04-29.5',
+        version: '2026-05-02.1',
         manufacturers: [
             {
                 id: 'ivprodukt', name: 'IVProdukt',
@@ -1563,7 +1583,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             {
                 id: 'regin', name: 'Regin',
                 models: [
-                    { id: 'rcc-c3docs', name: 'Regio Midi RCC-C3DOCS (1.7)', file: 'regin/rcc-c3docs.json', category: 'Regulator' }
+                    { id: 'regio-midi', name: 'Regio Midi (1.7) — alla rumsregulatorer', file: 'regin/regio-midi.json', category: 'Rumsregulator' }
                 ]
             },
             {
@@ -1650,13 +1670,24 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         }
         const out = [];
         const effPrefix = (prefix && prefix.trim()) || tpl.defaultDevicePrefix || 'DEV1';
-        // multiSlave templates require an explicit slave list — bare {prefix}
-        // makes no sense for a Modbus moxa-bridged regulator.
+        // Each entry can be either a number (range mode → token = slaveId) or
+        // a {nameId, slaveId} pair (table mode → token = nameId, address still
+        // uses the real slaveId). The range-mode array is normalised below.
         if (tpl.multiSlave && (!Array.isArray(slaveIds) || !slaveIds.length)) return [];
         const isMulti = !!tpl.multiSlave;
-        const slaves = isMulti ? slaveIds : [null];
-        for (const sid of slaves) {
-            const sp = (sid != null) ? (effPrefix + sid) : effPrefix;
+        const slaves = isMulti
+            ? slaveIds.map(s => (typeof s === 'object' && s !== null) ? s : { nameId: String(s), slaveId: s })
+            : [null];
+        const hasHash = /#+/.test(effPrefix);
+        for (const slv of slaves) {
+            const sid = slv ? slv.slaveId : null;
+            const token = slv ? slv.nameId : null;
+            // sp = device prefix substituted into {prefix} tokens. With ## in
+            // the prefix the token is placed where the # run lives (zero-padded
+            // to the run length); without ##, the token is appended (legacy).
+            const sp = (slv == null)
+                ? effPrefix
+                : (hasHash ? effPrefix.replace(/#+/, m => String(token).padStart(m.length, '0')) : (effPrefix + token));
             for (const tid of chosen) {
                 const raw = tpl.tags[tid];
                 if (!raw) { console.warn(CFG.logPrefix, 'resolveTemplate: unknown tag id', tid); continue; }
@@ -1669,7 +1700,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                     resolved[k] = s;
                 }
                 if (ioDevice) resolved.device = ioDevice;
-                resolved._id = (sid != null) ? `${tid}__s${sid}` : tid;
+                resolved._id = slv ? `${tid}__n${token}__s${sid}` : tid;
                 out.push(resolved);
             }
         }
@@ -1704,42 +1735,72 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         return { ids: Array.from(ids).sort((a, b) => a - b), invalid };
     }
 
-    // ----- Tag creation via copy+edit seed-tag approach -----
-    // Since WebPort's native "new tag" endpoint is unknown, we reuse the existing
-    // copy path: clone a user-picked seed tag to the target name, then immediately
-    // POST over its fields via /tag/actionedit. Two requests per created tag.
+    // ----- Tag creation via WebPort's native new-tag endpoint -----
+    // /tag/ActionAdd?show=1&type=tag&sid=<sid> renders the same blank form
+    // WebPort's UI uses for "Ny tagg". Posting the serialized form to
+    // /tag/actionadd creates the tag in one round-trip — no seed-tag copy
+    // step, so the modal works on a freshly commissioned WebPort with zero
+    // existing tags.
 
-    async function createTagFromTemplate(tag, seedTagName) {
-        // Step 1: copy seed → new name
-        const copyParams = await fetchCopyBaseParams(seedTagName);
-        copyParams.set('name', tag.name);
-        if (tag.address != null) copyParams.set('address', tag.address);
-        const copyRes = await fetch('/tag/actioncopy', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: copyParams.toString()
-        });
-        if (!copyRes.ok) throw new Error('copy HTTP ' + copyRes.status);
+    let _newTagFormCache = null;
+    let _newTagFormPromise = null;
 
-        // Step 2: overwrite fields on the new tag with template data
-        await fetchFormAndSave(tag.name, (fd) => {
-            const fields = ['device', 'address', 'datatype', 'rawmin', 'rawmax',
-                            'engmin', 'engmax', 'unit', 'format', 'description',
-                            'alarmoptions', 'trendoptions'];
-            for (const k of fields) {
-                if (tag[k] != null && tag[k] !== '') fd.set(k, String(tag[k]));
+    // Fetch the blank new-tag form once per page session and cache the
+    // serialized FormData. createTagNative() clones this for each tag and
+    // overrides the template fields before POSTing.
+    async function _fetchNewTagFormTemplate() {
+        if (_newTagFormCache) return _newTagFormCache;
+        if (_newTagFormPromise) return _newTagFormPromise;
+        const sid = new URLSearchParams(location.search).get('sid') || '';
+        const url = '/tag/ActionAdd?show=1&type=tag&sid=' + encodeURIComponent(sid);
+        _newTagFormPromise = (async () => {
+            const r = await fetch(url);
+            if (!r.ok) throw new Error('new-tag form HTTP ' + r.status);
+            const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+            const form = doc.querySelector('form#frmtag') || doc.querySelector('form');
+            if (!form) throw new Error('Formulär saknas i ActionAdd-svar');
+            // Capture as plain object so each createTagNative() call gets a
+            // fresh, isolated FormData (FormData itself is mutable).
+            const baseEntries = [];
+            for (const el of form.querySelectorAll('input,textarea,select')) {
+                if (!el.name || el.type === 'file') continue;
+                if (el.type === 'checkbox') { if (el.checked) baseEntries.push([el.name, el.value || 'on']); continue; }
+                if (el.type === 'radio') { if (el.checked) baseEntries.push([el.name, el.value]); continue; }
+                baseEntries.push([el.name, el.value]);
             }
-        });
+            _newTagFormCache = baseEntries;
+            return baseEntries;
+        })();
+        try { return await _newTagFormPromise; }
+        finally { _newTagFormPromise = null; }
+    }
+
+    async function createTagNative(tag) {
+        const baseEntries = await _fetchNewTagFormTemplate();
+        const fd = new FormData();
+        for (const [k, v] of baseEntries) fd.append(k, v);
+        fd.set('name', tag.name);
+        if (tag.address != null) fd.set('address', String(tag.address));
+        // Map display-name device → UUID. Templates resolve to display names
+        // (or {prefix} expansions) but /tag/actionadd needs the UUID.
+        if (tag.device) fd.set('device', _tplDeviceNameToUuid(tag.device));
+        const fields = ['datatype', 'rawmin', 'rawmax', 'engmin', 'engmax',
+                        'unit', 'format', 'description'];
+        for (const k of fields) {
+            if (tag[k] != null && tag[k] !== '') fd.set(k, String(tag[k]));
+        }
+        const r = await fetch('/tag/actionadd', { method: 'POST', body: fd });
+        if (!r.ok) throw new Error('actionadd HTTP ' + r.status);
     }
 
     // Batch-create with concurrency-capped dispatch + progress callback.
     // progressCb(done, total, failing[]) fires after each tag completes (in any order).
-    async function createTagBatch(tags, seedTagName, progressCb) {
+    async function createTagBatch(tags, progressCb) {
         const failing = [];
         let done = 0;
         const results = await runWithConcurrency(tags, BULK_CONCURRENCY, async (t) => {
             try {
-                await createTagFromTemplate(t, seedTagName);
+                await createTagNative(t);
                 logAppend('success', `Skapade tagg: ${t.name}`, 'inu');
             } catch (e) {
                 console.warn(CFG.logPrefix, 'create failed', t.name, e);
@@ -1799,6 +1860,58 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             .map(([name, count]) => ({ name, count }));
     }
 
+    // Fetched IO-device master list (name + UUID), cached for the page session.
+    // Populated lazily by _tplFetchIODevices() the first time the template modal
+    // opens. Persists across modal opens; invalidated only on full page reload.
+    let _ioDeviceMasterList = null;
+    let _ioDeviceMasterPromise = null;
+
+    // Fetch the full IO-device list from WebPort's new-tag form. The form's
+    // <select name="device"> contains every configured IO-source as an
+    // <option value="UUID">DisplayName</option>. We need the UUID to POST a
+    // tag via /tag/actionadd, but the table only ever shows display names —
+    // hence the name→UUID map cached here for createTagNative() to look up.
+    async function _tplFetchIODevices() {
+        if (_ioDeviceMasterList) return _ioDeviceMasterList;
+        if (_ioDeviceMasterPromise) return _ioDeviceMasterPromise;
+        const sid = new URLSearchParams(location.search).get('sid') || '';
+        const url = '/tag/ActionAdd?show=1&type=tag&sid=' + encodeURIComponent(sid);
+        _ioDeviceMasterPromise = (async () => {
+            const r = await fetch(url);
+            if (!r.ok) throw new Error('IO-list HTTP ' + r.status);
+            const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+            const sel = doc.querySelector('form#frmtag select[name="device"], select[name="device"]');
+            if (!sel) throw new Error('select[name=device] saknas i ActionAdd-svar');
+            const list = Array.from(sel.options)
+                .filter(o => o.value) // skip the empty "Ingen" entry
+                .map(o => ({ uuid: o.value, name: (o.textContent || '').trim() }));
+            _ioDeviceMasterList = list;
+            return list;
+        })();
+        try { return await _ioDeviceMasterPromise; }
+        finally { _ioDeviceMasterPromise = null; }
+    }
+
+    // Display name → UUID lookup; falls back to the input if no match (so
+    // legacy display-name-as-value paths keep working until the master list
+    // is fetched).
+    function _tplDeviceNameToUuid(displayName) {
+        if (!displayName || !_ioDeviceMasterList) return displayName;
+        const hit = _ioDeviceMasterList.find(d => d.name === displayName);
+        return hit ? hit.uuid : displayName;
+    }
+
+    // Combine existing-table counts with the master list so the commissioner
+    // sees a complete dropdown (every IO-device, plus a "(N)" usage count for
+    // the ones already in use). Returns [{name, count}] preserving the
+    // existing _tplExistingIODevices shape so the modal code is unchanged.
+    function _tplMergeIODevices(masterList, existingCounts) {
+        const countByName = new Map(existingCounts.map(d => [d.name, d.count]));
+        return masterList
+            .map(d => ({ name: d.name, count: countByName.get(d.name) || 0 }))
+            .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    }
+
     // The seed tag's IO-device — the natural default for the dropdown.
     function _tplSeedIODevice(seedTagName) {
         if (!seedTagName) return '';
@@ -1841,7 +1954,10 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         const effPrefix = (prefix && String(prefix).trim()) || tpl.defaultDevicePrefix || 'DEV1';
         const isMulti = !!tpl.multiSlave;
         const exampleSid = isMulti ? ((Array.isArray(slaveIds) && slaveIds[0]) || 1) : null;
-        const sp = (exampleSid != null) ? (effPrefix + exampleSid) : effPrefix;
+        const hasHash = /#+/.test(effPrefix);
+        const sp = (exampleSid == null)
+            ? effPrefix
+            : (hasHash ? effPrefix.replace(/#+/, m => String(exampleSid).padStart(m.length, '0')) : (effPrefix + exampleSid));
         const out = [];
         for (const tid of opt.tags) {
             const raw = tpl.tags && tpl.tags[tid];
@@ -2099,8 +2215,8 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     <select id="tpl-model"></select>
   </div>
   <div>
-    <label>Enhets-prefix</label>
-    <input id="tpl-prefix" placeholder="AHU1 / HP1 / …">
+    <label>Enhets-prefix <span style="font-size:10px;color:#999;font-weight:400;">## = numreringsplats</span></label>
+    <input id="tpl-prefix" placeholder="AHU## / HP1 / …">
   </div>
   <div>
     <label>IO-enhet</label>
@@ -2108,13 +2224,24 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
   </div>
 </div>
 <div class="tpl-slaves-row" id="tpl-slaves-row">
-  <label>Slav-ID:n</label>
-  <div>
-    <input id="tpl-slaves" placeholder="1-5, 8, 10">
-    <div class="tpl-slaves-summary" id="tpl-slaves-summary"></div>
+  <div class="tpl-slaves-hdr">
+    <label>Slav-ID:n</label>
+    <div class="tpl-slaves-modes">
+      <button type="button" id="tpl-slaves-mode-range" class="on" title="Område: 1-5, 8, 10">Område</button>
+      <button type="button" id="tpl-slaves-mode-table" title="Tabell: namn-ID per rad">Tabell</button>
+    </div>
   </div>
+  <div class="tpl-slaves-range on" id="tpl-slaves-range">
+    <input id="tpl-slaves" placeholder="1-5, 8, 10">
+  </div>
+  <table class="tpl-slaves-tbl" id="tpl-slaves-tbl">
+    <thead><tr><th>Namn-ID</th><th>Slav-ID</th><th class="tpl-slaves-tbl-act"></th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <button type="button" class="tpl-slaves-tbl-add" id="tpl-slaves-tbl-add" style="display:none;">+ Lägg till rad</button>
+  <div class="tpl-slaves-summary" id="tpl-slaves-summary"></div>
   <div class="tpl-slaves-help">
-    En tagguppsättning per slav. Adresser blir <code>ID@adress</code>, namn får <code>{prefix}{ID}</code>. Ex: <code>1-5, 8, 10</code> → 1,2,3,4,5,8,10.
+    En tagguppsättning per slav. Adresser blir <code>ID@adress</code>, namn får <code>{prefix}</code> sammansatt med ID:t (eller med <code>##</code> i prefixet ersatt av ID:t). Ex område: <code>1-5, 8, 10</code> → 1,2,3,4,5,8,10. Tabell-läge: ange <code>Namn-ID</code> (kan vara t.ex. <code>001</code>) och <code>Slav-ID</code> (1-247) per rad.
   </div>
 </div>
 <div class="tpl-status" id="tpl-status"></div>
@@ -2142,12 +2269,17 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         const prefixInp = q('#tpl-prefix'), ioDevSel = q('#tpl-iodev');
         const statusEl = q('#tpl-status'), cfgEl = q('#tpl-cfg');
         const slavesRow = q('#tpl-slaves-row'), slavesInp = q('#tpl-slaves'), slavesSummary = q('#tpl-slaves-summary');
+        const slavesRangeBox = q('#tpl-slaves-range'), slavesTbl = q('#tpl-slaves-tbl'), slavesTblBody = slavesTbl.querySelector('tbody');
+        const slavesTblAdd = q('#tpl-slaves-tbl-add');
+        const slavesModeRangeBtn = q('#tpl-slaves-mode-range'), slavesModeTableBtn = q('#tpl-slaves-mode-table');
+        let slavesMode = 'range'; // 'range' | 'table'
+        const slavesTblRows = []; // [{nameId, slaveId}] mirror of the table for resolution
         const resWrap = q('#tpl-res-wrap'), resHdr = q('#tpl-res-hdr'), resBody = q('#tpl-res-body'), resCount = q('#tpl-res-count');
         const addBtn = q('#tpl-add'), cancelBtn = q('#tpl-cancel');
         const progEl = q('#tpl-prog'), progText = q('#tpl-prog-text'), progFill = q('#tpl-prog-fill');
 
-        // Existing tags in the current WebPort table. The first one is auto-used as
-        // the seed tag for the copy+edit creation path. Empty table → blocking error.
+        // Seed tag is no longer required for creation (we POST to /tag/actionadd
+        // directly). It's still used as a UX hint for the IO-device default.
         const existing = _tplExistingTags();
         const seedTag = existing[0] || null;
 
@@ -2159,26 +2291,56 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             mfrSel.appendChild(o);
         }
 
-        // Populate IO-device dropdown from existing devices in the table.
-        // Default to the seed tag's device — that's almost always what the
-        // commissioner wants when bulk-creating tags for the same physical bus.
-        const ioDevices = _tplExistingIODevices();
+        // Populate IO-device dropdown. Fetches the full master list from
+        // WebPort's new-tag form (so the dropdown is usable on a fresh install
+        // with no existing tags), then merges in usage counts from the current
+        // table. Defaults to the seed tag's device when one exists, otherwise
+        // the most-used device, otherwise the first one in the master list.
         const seedIoDev = _tplSeedIODevice(seedTag);
-        ioDevSel.innerHTML = '';
-        if (!ioDevices.length) {
-            const o = document.createElement('option');
-            o.value = ''; o.textContent = '(ingen IO-enhet hittad)';
-            ioDevSel.appendChild(o);
-            ioDevSel.disabled = true;
-        } else {
-            for (const d of ioDevices) {
-                const o = document.createElement('option');
-                o.value = d.name;
-                o.textContent = `${d.name} (${d.count})`;
-                ioDevSel.appendChild(o);
+        ioDevSel.innerHTML = '<option value="">(hämtar IO-enheter…)</option>';
+        ioDevSel.disabled = true;
+        (async () => {
+            const existingCounts = _tplExistingIODevices();
+            try {
+                const master = await _tplFetchIODevices();
+                const merged = _tplMergeIODevices(master, existingCounts);
+                ioDevSel.innerHTML = '';
+                if (!merged.length) {
+                    const o = document.createElement('option');
+                    o.value = ''; o.textContent = '(inga IO-enheter konfigurerade)';
+                    ioDevSel.appendChild(o);
+                    return;
+                }
+                for (const d of merged) {
+                    const o = document.createElement('option');
+                    o.value = d.name;
+                    o.textContent = d.count > 0 ? `${d.name} (${d.count})` : d.name;
+                    ioDevSel.appendChild(o);
+                }
+                ioDevSel.disabled = false;
+                ioDevSel.value = seedIoDev || merged[0].name;
+                updatePreview();
+            } catch (e) {
+                console.warn(CFG.logPrefix, 'IO-device fetch failed', e);
+                // Fallback to existing-table scan only.
+                ioDevSel.innerHTML = '';
+                if (!existingCounts.length) {
+                    const o = document.createElement('option');
+                    o.value = ''; o.textContent = '(kunde inte hämta IO-enheter)';
+                    ioDevSel.appendChild(o);
+                    return;
+                }
+                for (const d of existingCounts) {
+                    const o = document.createElement('option');
+                    o.value = d.name;
+                    o.textContent = `${d.name} (${d.count})`;
+                    ioDevSel.appendChild(o);
+                }
+                ioDevSel.disabled = false;
+                ioDevSel.value = seedIoDev || existingCounts[0].name;
+                updatePreview();
             }
-            ioDevSel.value = seedIoDev || ioDevices[0].name;
-        }
+        })();
 
         let currentTpl = null;
         let currentAnswers = {};
@@ -2204,52 +2366,165 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             statusEl.style.display = 'block';
         }
 
-        // Parse the slave-range input and refresh the small summary line under
-        // it. Returns the parse result so the caller can use the IDs/invalid
-        // tokens to decide what to render and what status banner to show.
+        // Build (and rebuild) the editable slave table from slavesTblRows[].
+        // Only called for structural changes — add/remove rows. Per-keystroke
+        // validation reuses the existing inputs via _applySlavesTableErrors so
+        // typing doesn't steal focus from the cell being edited.
+        function renderSlavesTable() {
+            slavesTblBody.innerHTML = '';
+            slavesTblRows.forEach((row, i) => {
+                const tr = document.createElement('tr');
+                tr.dataset.i = String(i);
+                const tdN = document.createElement('td');
+                const inN = document.createElement('input');
+                inN.type = 'text'; inN.value = row.nameId; inN.placeholder = '001';
+                inN.dataset.col = 'name';
+                inN.addEventListener('input', () => { slavesTblRows[i].nameId = inN.value; updatePreview(); });
+                tdN.appendChild(inN);
+                const tdS = document.createElement('td');
+                const inS = document.createElement('input');
+                inS.type = 'text'; inS.value = row.slaveId == null ? '' : String(row.slaveId); inS.placeholder = '1-247';
+                inS.dataset.col = 'slave';
+                inS.addEventListener('input', () => {
+                    const v = inS.value.trim();
+                    slavesTblRows[i].slaveId = v === '' ? null : (/^\d+$/.test(v) ? parseInt(v, 10) : v);
+                    updatePreview();
+                });
+                tdS.appendChild(inS);
+                const tdA = document.createElement('td');
+                tdA.className = 'tpl-slaves-tbl-act';
+                const btn = document.createElement('button');
+                btn.type = 'button'; btn.textContent = '×'; btn.title = 'Ta bort rad';
+                btn.addEventListener('click', () => { slavesTblRows.splice(i, 1); renderSlavesTable(); updatePreview(); });
+                tdA.appendChild(btn);
+                tr.appendChild(tdN); tr.appendChild(tdS); tr.appendChild(tdA);
+                slavesTblBody.appendChild(tr);
+            });
+        }
+
+        // Toggle .tpl-err on existing inputs without rebuilding the table.
+        function _applySlavesTableErrors(errors) {
+            const trs = slavesTblBody.querySelectorAll('tr');
+            trs.forEach((tr, i) => {
+                const inN = tr.querySelector('input[data-col="name"]');
+                const inS = tr.querySelector('input[data-col="slave"]');
+                if (inN) inN.classList.toggle('tpl-err', !!errors.nameIdRows.has(i));
+                if (inS) inS.classList.toggle('tpl-err', !!errors.slaveIdRows.has(i));
+            });
+        }
+
+        function addSlaveTableRow() {
+            // Pre-fill name-id by inferring from the previous row's pattern
+            // (last row '003' → '004'; last row '231' → '232'). Slave-ID is
+            // intentionally left blank — physical IDs rarely follow a sequence.
+            const last = slavesTblRows[slavesTblRows.length - 1];
+            let nameId = '001';
+            if (last && /^\d+$/.test(last.nameId)) {
+                const n = parseInt(last.nameId, 10) + 1;
+                nameId = String(n).padStart(last.nameId.length, '0');
+            }
+            slavesTblRows.push({ nameId, slaveId: null });
+            renderSlavesTable();
+            updatePreview();
+        }
+
+        // Validate the table rows. Returns {entries: [{nameId, slaveId}], errors}
+        // where entries are the *valid* rows ready for resolveTemplate, and
+        // errors is a structured set used by renderSlavesTable to highlight
+        // bad cells. Empty rows are silently skipped.
+        function validateSlavesTable() {
+            const entries = [];
+            const nameIdRows = new Set(), slaveIdRows = new Set();
+            const seenNameId = new Map(), seenSlaveId = new Map();
+            const issues = [];
+            slavesTblRows.forEach((row, i) => {
+                const nm = (row.nameId || '').trim();
+                const sid = row.slaveId;
+                const isNumSid = typeof sid === 'number' && Number.isFinite(sid);
+                const isEmptyRow = !nm && (sid == null || sid === '');
+                if (isEmptyRow) return;
+                if (!nm) { nameIdRows.add(i); issues.push(`rad ${i + 1}: namn-ID saknas`); return; }
+                if (!isNumSid || sid < 1 || sid > 247) { slaveIdRows.add(i); issues.push(`rad ${i + 1}: slav-ID ogiltigt`); return; }
+                if (seenNameId.has(nm)) { nameIdRows.add(i); nameIdRows.add(seenNameId.get(nm)); issues.push(`namn-ID "${nm}" dubbel`); return; }
+                if (seenSlaveId.has(sid)) { slaveIdRows.add(i); slaveIdRows.add(seenSlaveId.get(sid)); issues.push(`slav-ID ${sid} dubbel`); return; }
+                seenNameId.set(nm, i); seenSlaveId.set(sid, i);
+                entries.push({ nameId: nm, slaveId: sid });
+            });
+            return { entries, errors: { nameIdRows, slaveIdRows }, issues };
+        }
+
+        // Parse the slave input (range or table mode) and refresh the small
+        // summary line. Returns { entries: [{nameId, slaveId}] | null } where
+        // a null entries array means "no valid input yet" (block creation).
         function refreshSlaves() {
             if (!currentTpl || !currentTpl.multiSlave) {
                 slavesRow.classList.remove('on', 'tpl-err');
                 slavesSummary.textContent = '';
-                return { ids: [], invalid: [] };
+                return { entries: [] };
             }
             slavesRow.classList.add('on');
-            const parsed = _tplParseSlaveRange(slavesInp.value);
-            slavesRow.classList.toggle('tpl-err', parsed.invalid.length > 0);
-            if (!parsed.ids.length && !parsed.invalid.length) {
-                slavesSummary.textContent = 'Ange minst ett slav-ID.';
-            } else if (parsed.ids.length) {
-                slavesSummary.textContent = `${parsed.ids.length} slav${parsed.ids.length === 1 ? '' : 'ar'}: ${parsed.ids.join(', ')}`
-                    + (parsed.invalid.length ? `   (ignorerar: ${parsed.invalid.join(', ')})` : '');
-            } else {
-                slavesSummary.textContent = `Ogiltiga: ${parsed.invalid.join(', ')}`;
+            if (slavesMode === 'range') {
+                const parsed = _tplParseSlaveRange(slavesInp.value);
+                slavesRow.classList.toggle('tpl-err', parsed.invalid.length > 0);
+                if (!parsed.ids.length && !parsed.invalid.length) {
+                    slavesSummary.textContent = 'Ange minst ett slav-ID.';
+                } else if (parsed.ids.length) {
+                    slavesSummary.textContent = `${parsed.ids.length} slav${parsed.ids.length === 1 ? '' : 'ar'}: ${parsed.ids.join(', ')}`
+                        + (parsed.invalid.length ? `   (ignorerar: ${parsed.invalid.join(', ')})` : '');
+                } else {
+                    slavesSummary.textContent = `Ogiltiga: ${parsed.invalid.join(', ')}`;
+                }
+                return { entries: parsed.ids.map(n => ({ nameId: String(n), slaveId: n })) };
             }
-            return parsed;
+            // Table mode
+            const v = validateSlavesTable();
+            _applySlavesTableErrors(v.errors);
+            const hasErr = v.errors.nameIdRows.size > 0 || v.errors.slaveIdRows.size > 0;
+            slavesRow.classList.toggle('tpl-err', hasErr);
+            if (!slavesTblRows.length) {
+                slavesSummary.textContent = 'Lägg till minst en rad.';
+            } else if (hasErr) {
+                slavesSummary.textContent = 'Fel: ' + v.issues.slice(0, 3).join('; ') + (v.issues.length > 3 ? '…' : '');
+            } else if (!v.entries.length) {
+                slavesSummary.textContent = 'Inga giltiga rader.';
+            } else {
+                slavesSummary.textContent = `${v.entries.length} enhet${v.entries.length === 1 ? '' : 'er'}: ` +
+                    v.entries.map(e => `${e.nameId}→${e.slaveId}`).slice(0, 6).join(', ') +
+                    (v.entries.length > 6 ? `   (+${v.entries.length - 6} till)` : '');
+            }
+            return { entries: hasErr ? null : v.entries };
+        }
+
+        function setSlavesMode(mode) {
+            slavesMode = mode;
+            slavesModeRangeBtn.classList.toggle('on', mode === 'range');
+            slavesModeTableBtn.classList.toggle('on', mode === 'table');
+            slavesRangeBox.classList.toggle('on', mode === 'range');
+            slavesTbl.classList.toggle('on', mode === 'table');
+            slavesTblAdd.style.display = mode === 'table' ? 'inline-block' : 'none';
+            if (mode === 'table' && !slavesTblRows.length) addSlaveTableRow();
+            updatePreview();
         }
 
         function updatePreview() {
             if (!currentTpl) { resWrap.style.display = 'none'; addBtn.disabled = true; return; }
-            const slavesParsed = refreshSlaves();
-            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value, slavesParsed.ids, ioDevSel.value || null);
+            const slv = refreshSlaves();
+            const slaves = slv.entries || [];
+            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value, slaves, ioDevSel.value || null);
             const effective = resolved.filter(t => !uncheckedIds.has(t._id));
             resCount.textContent = effective.length + ' taggar';
             resWrap.style.display = 'block';
             _tplRenderResolvedList(resolved, uncheckedIds, resBody, updatePreview);
             addBtn.textContent = effective.length ? `Lägg till ${effective.length} taggar` : 'Lägg till';
-            addBtn.disabled = effective.length === 0 || !seedTag;
-        }
-
-        // If there are no existing tags in the table, surface a blocking warning
-        // up front. The seed-tag mechanism needs at least one existing tag to copy
-        // from, so creation is impossible until the commissioner adds one.
-        if (!seedTag) {
-            setStatus('Tabellen är tom — skapa minst en tagg manuellt först. Mall-funktionen kopierar fält från en befintlig tagg, så listan får inte vara tom.', true);
+            // Block creation in table mode if there are validation errors
+            // (slv.entries === null), otherwise let the resolved-count gate it.
+            addBtn.disabled = effective.length === 0 || slv.entries === null;
         }
 
         async function loadModel() {
             const opt = modelSel.options[modelSel.selectedIndex];
             if (!opt || !opt.dataset.file) return;
-            if (seedTag) setStatus('Laddar mall...', false);
+            setStatus('Laddar mall...', false);
             cfgEl.innerHTML = '<div style="font-size:12px;color:#888;padding:12px;">Hämtar...</div>';
             try {
                 const tpl = await fetchTemplate(opt.dataset.file);
@@ -2259,10 +2534,14 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 if (tpl.defaultDevicePrefix && !prefixInp.value) prefixInp.value = tpl.defaultDevicePrefix;
                 if (tpl.multiSlave && !slavesInp.value) slavesInp.value = tpl.defaultSlaves || '1';
                 _tplRenderConfig(tpl, currentAnswers, cfgEl, updatePreview, () => prefixInp.value,
-                    () => (currentTpl && currentTpl.multiSlave) ? _tplParseSlaveRange(slavesInp.value).ids : []);
-                // Don't wipe the empty-table warning when the load succeeds — it stays
-                // up until the commissioner closes the modal and creates a seed tag.
-                if (seedTag) setStatus('', false);
+                    () => {
+                        if (!currentTpl || !currentTpl.multiSlave) return [];
+                        if (slavesMode === 'table') {
+                            return validateSlavesTable().entries.map(e => e.slaveId);
+                        }
+                        return _tplParseSlaveRange(slavesInp.value).ids;
+                    });
+                setStatus('', false);
                 updatePreview();
             } catch (e) {
                 currentTpl = null;
@@ -2277,6 +2556,9 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         prefixInp.addEventListener('input', updatePreview);
         slavesInp.addEventListener('input', updatePreview);
         ioDevSel.addEventListener('change', updatePreview);
+        slavesModeRangeBtn.addEventListener('click', () => setSlavesMode('range'));
+        slavesModeTableBtn.addEventListener('click', () => setSlavesMode('table'));
+        slavesTblAdd.addEventListener('click', addSlaveTableRow);
         resHdr.addEventListener('click', () => {
             resHdr.classList.toggle('open');
             resBody.classList.toggle('open');
@@ -2285,9 +2567,11 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         cancelBtn.addEventListener('click', () => m.remove());
 
         addBtn.addEventListener('click', async () => {
-            if (!currentTpl || !seedTag) return;
-            const slaveIds = currentTpl.multiSlave ? _tplParseSlaveRange(slavesInp.value).ids : [];
-            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value, slaveIds, ioDevSel.value || null);
+            if (!currentTpl) return;
+            const slv = refreshSlaves();
+            if (slv.entries === null) return; // validation errors in table mode
+            const slaves = currentTpl.multiSlave ? slv.entries : [];
+            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value, slaves, ioDevSel.value || null);
             const toCreate = resolved.filter(t => !uncheckedIds.has(t._id));
             if (!toCreate.length) return;
 
@@ -2324,13 +2608,13 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             progText.textContent = `Skapar 0 / ${toCreate.length}...`;
             progFill.style.width = '0%';
 
-            const failing = await createTagBatch(toCreate, seedTag, (done, total, fails) => {
+            const failing = await createTagBatch(toCreate, (done, total, fails) => {
                 progText.textContent = `Skapar ${done} / ${total}...` + (fails.length ? ` (${fails.length} fel)` : '');
                 progFill.style.width = (done / total * 100).toFixed(1) + '%';
             });
 
             if (failing.length === toCreate.length) {
-                setStatus('Alla taggar misslyckades. Kontrollera konsolen och seed-taggen.', true);
+                setStatus('Alla taggar misslyckades. Kontrollera konsolen.', true);
                 addBtn.disabled = false; cancelBtn.disabled = false;
                 progEl.classList.remove('on');
                 return;
