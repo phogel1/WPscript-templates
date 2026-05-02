@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260502.2355
+// @version      7.4.20260502.2359
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -1566,7 +1566,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     // lazy-fetched from TEMPLATE_BASE_URL and cached in GM storage.
     const TEMPLATE_BASE_URL = 'https://phogel1.github.io/static-assets/';
     const TEMPLATE_INDEX = {
-        version: '2026-05-02.1',
+        version: '2026-05-02.2',
         manufacturers: [
             {
                 id: 'ivprodukt', name: 'IVProdukt',
@@ -2070,6 +2070,18 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 }
                 sel.addEventListener('change', () => {
                     state[sec.id] = sel.value;
+                    // If the chosen option declares presets for other sections
+                    // (e.g. a "model variant" dropdown that should auto-flip
+                    // CO₂/fan/output defaults), apply them and re-render the
+                    // entire config UI so the new defaults are visible.
+                    const chosen = (sec.options || []).find(o => o.id === sel.value);
+                    if (chosen && chosen.presets) {
+                        for (const k of Object.keys(chosen.presets)) {
+                            const v = chosen.presets[k];
+                            state[k] = Array.isArray(v) ? v.slice() : v;
+                        }
+                        _tplRenderConfig(tpl, state, container, onChange, getPrefix, getSlaves);
+                    }
                     onChange();
                 });
                 row.appendChild(sel);
