@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.0120
+// @version      7.4.20260503.0147
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -2608,9 +2608,17 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             .forEach(f=>{const o=document.createElement('option');o.value=f.v;o.textContent=f.l;bPg.appendChild(o);});
         // Persisted page length, defaults to 100 (WebPort's own default is 50,
         // but commissioning sessions are easier with more rows visible).
-        const _pgPref = String(GM_getValue('inu_page_length', '100'));
+        // The value is interpolated into a runInPage() <script> body, so we
+        // whitelist against the known enum to close a GM-storage code-injection
+        // sink (audit F5).
+        const _PG_LEN_ALLOWED = new Set(['50', '100', '250', '-1']);
+        const _pgRaw = String(GM_getValue('inu_page_length', '100'));
+        const _pgPref = _PG_LEN_ALLOWED.has(_pgRaw) ? _pgRaw : '100';
         bPg.value = _pgPref;
-        const _applyPgLen = (len) => runInPage(`(function(){try{var t=$('#tagtable').dataTable();t.fnSettings()._iDisplayLength=${len};t.fnDraw();}catch(e){console.error('[INU WP+]',e);}})();`);
+        const _applyPgLen = (len) => {
+            if (!_PG_LEN_ALLOWED.has(String(len))) { console.warn(CFG.logPrefix, 'rejected non-enum page length', len); return; }
+            runInPage(`(function(){try{var t=$('#tagtable').dataTable();t.fnSettings()._iDisplayLength=${len};t.fnDraw();}catch(e){console.error('[INU WP+]',e);}})();`);
+        };
         // Apply the saved preference on first toolbar build (after a short
         // delay so the DataTable is fully initialized in the page scope).
         setTimeout(() => _applyPgLen(_pgPref), 200);
@@ -4496,7 +4504,7 @@ ${this.buildTimelineHtml(group.key)}`;
                 gain.connect(this.audioCtx.destination);
                 osc.start();
                 osc.stop(this.audioCtx.currentTime + 0.12);
-            } catch (e) {}
+            } catch (e) { console.warn(CFG.logPrefix, 'monitor beep failed', e); }
         }
 
         updateClock() {
@@ -6082,7 +6090,7 @@ ${this.buildTimelineHtml(group.key)}`;
                     patternDefault = existId.replace(/_\d+$/, '_##');
                     if (patternDefault === existId) patternDefault = existId + '_##';
                 }
-            } catch(e) {}
+            } catch(e) { console.warn(CFG.logPrefix, 'batch-generate pattern probe failed', e); }
         }
 
         const overlay = iDoc.createElement('div');
@@ -6340,7 +6348,10 @@ ${this.buildTimelineHtml(group.key)}`;
 
             const wpp = iDoc.getElementById('wpp');
             if (!inuOff('observers')) {
-                new MutationObserver(muts => {
+                // Both editor observers tracked so cleanupPageEditor can disconnect
+                // them on SPA nav. Iframe doc is reused across pageid changes, so
+                // without this we'd accumulate observers on #wpp every visit.
+                const classObs = trackObserver(new MutationObserver(muts => {
                     for (const m of muts) {
                         if (m.type === 'attributes' && m.attributeName === 'class') {
                             const el = m.target;
@@ -6349,9 +6360,10 @@ ${this.buildTimelineHtml(group.key)}`;
                             if (_editorLocked[el.id]) editorApplyLock(el, true);
                         }
                     }
-                }).observe(wpp, { subtree: true, attributes: true, attributeFilter: ['class'] });
+                }));
+                classObs.observe(wpp, { subtree: true, attributes: true, attributeFilter: ['class'] });
                 // Zoom observer — watch #wpp style for transform changes
-                new MutationObserver(() => editorUpdateZoom())
+                trackObserver(new MutationObserver(() => editorUpdateZoom()))
                     .observe(wpp, { attributes: true, attributeFilter: ['style'] });
             }
 
@@ -6651,7 +6663,7 @@ ${this.buildTimelineHtml(group.key)}`;
         _diagramTooltipDoc = iDoc;
 
         // Restore preference (default OFF)
-        try { _diagramTooltipEnabled = GM_getValue('inu_diagram_tooltip', false); } catch (e) {}
+        try { _diagramTooltipEnabled = GM_getValue('inu_diagram_tooltip', false); } catch (e) { console.warn(CFG.logPrefix, 'GM_getValue inu_diagram_tooltip failed', e); }
 
         // Toggle button — in editor toolbar (edit mode) or in the FAB
         // group next to the monitor button (view mode).
@@ -6665,7 +6677,7 @@ ${this.buildTimelineHtml(group.key)}`;
             }
             btn.addEventListener('click', () => {
                 _diagramTooltipEnabled = !_diagramTooltipEnabled;
-                try { GM_setValue('inu_diagram_tooltip', _diagramTooltipEnabled); } catch (e) {}
+                try { GM_setValue('inu_diagram_tooltip', _diagramTooltipEnabled); } catch (e) { console.warn(CFG.logPrefix, 'GM_setValue inu_diagram_tooltip failed', e); }
                 updateBtn();
                 if (!_diagramTooltipEnabled) hideTooltip();
             });
@@ -6701,7 +6713,8 @@ ${this.buildTimelineHtml(group.key)}`;
         // Skip the body when the tab is hidden — diagrams aren't realtime-
         // critical, and a backgrounded tab burns network for nothing. We
         // catch back up immediately on visibilitychange below.
-        setInterval(() => { if (!document.hidden) fetchValues(); }, 2000);
+        // Tracked so SPA nav cancels it (otherwise it polls forever).
+        trackTimer(setInterval(() => { if (!document.hidden) fetchValues(); }, 2000));
         document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchValues(); });
 
         function extractPoid(el) {
@@ -6863,17 +6876,19 @@ ${this.buildTimelineHtml(group.key)}`;
 
         console.log(CFG.logPrefix, 'Diagram tooltip active for', pageId, '(' + wpp.querySelectorAll('.wpCompObject').length + ' components)');
 
-        // Watch for SPA navigation: if the iframe document changes, reset and
-        // re-initialize. Check every 2 seconds alongside the value refresh —
-        // skip the check when the tab is hidden (no observable change anyway).
-        setInterval(() => {
-            if (document.hidden) return;
+        // Watch for SPA navigation that swaps the iframe document. Listen for
+        // the iframe's `load` event instead of polling — fires once per nav,
+        // doesn't burn network/CPU between navs, and survives SPA route changes
+        // because the listener is on the iframe itself (which the host page
+        // reuses across pageid changes). The previous polling implementation
+        // was the largest interval-leak source on long sessions (audit F2).
+        iframe.addEventListener('load', () => {
             const curDoc = iframe.contentDocument || iframe.contentWindow?.document;
             if (curDoc && curDoc !== _diagramTooltipDoc) {
-                _diagramTooltipDoc = null; // reset so next call re-initializes
+                _diagramTooltipDoc = null;
                 initDiagramTooltip();
             }
-        }, 2000);
+        });
 
         } catch (e) { console.error(CFG.logPrefix, 'Diagram tooltip init failed:', e); }
     }
@@ -6887,7 +6902,19 @@ ${this.buildTimelineHtml(group.key)}`;
     function trackObserver(obs) { _trackedObservers.push(obs); return obs; }
     function disconnectTrackedObservers() {
         while (_trackedObservers.length) {
-            try { _trackedObservers.pop().disconnect(); } catch (e) {}
+            try { _trackedObservers.pop().disconnect(); } catch (e) { console.warn(CFG.logPrefix, 'observer disconnect failed', e); }
+        }
+    }
+
+    // Same idea for setInterval handles: subsystems that start polling loops
+    // must register the handle so we can cancel them on SPA nav. Otherwise a
+    // user navigating page→tag list→page accumulates polling timers that fire
+    // every 2 s for the rest of the tab lifetime (audit findings F1, F2).
+    const _pageTimers = [];
+    function trackTimer(id) { _pageTimers.push(id); return id; }
+    function clearTrackedTimers() {
+        while (_pageTimers.length) {
+            try { clearInterval(_pageTimers.pop()); } catch (e) { console.warn(CFG.logPrefix, 'timer clear failed', e); }
         }
     }
 
@@ -6980,7 +7007,16 @@ ${this.buildTimelineHtml(group.key)}`;
             if (fired) { clearInterval(t); return; }
             if (checkSymbols()) clearInterval(t);
         }, 100);
-        setTimeout(() => { clearInterval(t); fire(); }, 8000);
+        // Safety timeout: if WebPort never shows .wpCompObject (renamed class,
+        // empty page, slow load) we still fire so pills/tooltips appear. Warn
+        // loudly because this means the symbol-render race protection failed —
+        // we're going to mutate the navbar without waiting for layout, which
+        // can re-introduce the iframe symbol-offset bug from audit F8.
+        setTimeout(() => {
+            if (!fired) console.warn(CFG.logPrefix, 'editor iframe ready timeout — .wpCompObject never appeared after 8s; symbol-render race may resurface');
+            clearInterval(t);
+            fire();
+        }, 8000);
     }
 
     function _routePage() {
@@ -7019,8 +7055,18 @@ ${this.buildTimelineHtml(group.key)}`;
         // No more 30-second polling loop running on every WebPort page.
         if (_routePage()) return;
         if (inuOff('bodyobs')) return;
+        // Debounced callback: WebPort renders heavy DOM trees in bursts, so a
+        // raw {childList,subtree} observer fires hundreds of times during the
+        // first paint. _routePage() is cheap individually but expensive in
+        // aggregate (4 page-type checks each call). 50 ms trailing-edge debounce
+        // collapses each burst into one route check (audit F4).
+        let _routeTimer = null;
         const bodyObs = new MutationObserver(() => {
-            if (_routePage()) bodyObs.disconnect();
+            if (_routeTimer) return;
+            _routeTimer = setTimeout(() => {
+                _routeTimer = null;
+                if (_routePage()) bodyObs.disconnect();
+            }, 50);
         });
         if (document.body) bodyObs.observe(document.body, { childList:true, subtree:true });
         else document.addEventListener('DOMContentLoaded', () => bodyObs.observe(document.body, { childList:true, subtree:true }), { once:true });
@@ -7047,6 +7093,9 @@ ${this.buildTimelineHtml(group.key)}`;
         // Also remove toolbar from outer page (fallback injection path)
         document.getElementById('inu-editor-toolbar')?.remove();
         _editorIframe = null;
+        // Disconnect tracked observers (editor's class+style observers, plus
+        // the tag-table observer on tag pages — both share _trackedObservers).
+        disconnectTrackedObservers();
     }
 
     // ============================================================
@@ -9149,6 +9198,10 @@ ${tuningHtml}
         // Tag-table observers belong to the previous route — disconnect them
         // so a long session doesn't accumulate dead observers on detached DOM.
         if (!isInuTagPage()) { disconnectTrackedObservers(); _resetInuTagPageActive(); }
+        // Page-scoped timers (content-page value polling) — cancel on every
+        // route change. Subsystems that still want a polling loop after the
+        // nav re-register their own timer in their init function.
+        clearTrackedTimers();
         // Always clean up editor toolbar when navigating away — it belongs only in edit mode
         if (!isPageEditorPage()) cleanupPageEditor();
         // Wait for the new route's DOM via MutationObserver instead of polling.
