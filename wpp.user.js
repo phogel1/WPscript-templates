@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.0025
+// @version      7.4.20260503.0030
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -3288,23 +3288,23 @@ ${totalHtml}${pillsHtml ? `<span class="inf">| Aktiva filter:</span>${pillsHtml}
 
     function showSourceBanner(dirty) {
         if (document.getElementById('inu-src-pill')) return;
-        // Inject pill styles if injectStyles() hasn't run (non-tag/device pages)
+        // Mounted in body as a fixed-position element rather than inside the
+        // WebPort navbar, because mutating the navbar's child list reflows the
+        // editor iframe and breaks symbol rendering (sub-pixel offsets, lost
+        // rotations, missing indications) — verified via inu_off=sources bisect.
         if (!document.getElementById('inu-src-pill-style')) {
             const s = document.createElement('style');
             s.id = 'inu-src-pill-style';
-            s.textContent = '.inu-src-pill{padding:3px 9px;border-radius:3px;font-size:10px;font-weight:600;color:#fff;background:#b84700;cursor:pointer;align-self:center;display:inline-flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap;margin-right:8px;}.inu-src-pill:hover{background:#e65100;color:#fff;}';
+            s.textContent = '#inu-src-pill{position:fixed;top:9px;right:200px;z-index:99999;padding:4px 10px;border-radius:3px;font-size:11px;font-weight:600;color:#fff;background:#b84700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);}#inu-src-pill:hover{background:#e65100;color:#fff;}';
             document.head.appendChild(s);
         }
-        const nav = document.getElementById('top-menu')?.parentElement;
-        if (!nav) return;
         const pill = document.createElement('a');
         pill.id = 'inu-src-pill';
-        pill.className = 'inu-src-pill';
         pill.href = '/tag/sources';
         const tip = dirty.map(d => d.name + ' (' + d.state + ')').join('\n');
         pill.title = tip;
         pill.innerHTML = '<i class="fa fa-exclamation-triangle"></i> ' + dirty.length + ' st osparade tagglistor';
-        nav.insertBefore(pill, nav.firstChild);
+        document.body.appendChild(pill);
     }
 
     // ============================================================
