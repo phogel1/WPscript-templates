@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.0051
+// @version      7.4.20260503.0115
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -2869,9 +2869,18 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         const bPg=document.createElement('select');bPg.className='fil';
         [{v:'50',l:'50 per sida'},{v:'100',l:'100 per sida'},{v:'250',l:'250 per sida'},{v:'-1',l:'Visa alla'}]
             .forEach(f=>{const o=document.createElement('option');o.value=f.v;o.textContent=f.l;bPg.appendChild(o);});
+        // Persisted page length, defaults to 100 (WebPort's own default is 50,
+        // but commissioning sessions are easier with more rows visible).
+        const _pgPref = String(GM_getValue('inu_page_length', '100'));
+        bPg.value = _pgPref;
+        const _applyPgLen = (len) => runInPage(`(function(){try{var t=$('#tagtable').dataTable();t.fnSettings()._iDisplayLength=${len};t.fnDraw();}catch(e){console.error('[INU WP+]',e);}})();`);
+        // Apply the saved preference on first toolbar build (after a short
+        // delay so the DataTable is fully initialized in the page scope).
+        setTimeout(() => _applyPgLen(_pgPref), 200);
         bPg.addEventListener('change',()=>{
             const len=bPg.value;
-            runInPage(`(function(){try{var t=$('#tagtable').dataTable();t.fnSettings()._iDisplayLength=${len};t.fnDraw();}catch(e){console.error('[INU WP+]',e);}})();`);
+            GM_setValue('inu_page_length', len);
+            _applyPgLen(len);
         });
         tbEl.appendChild(bPg);
 
