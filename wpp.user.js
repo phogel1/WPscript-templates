@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.1046
+// @version      7.4.20260503.1151
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -7051,41 +7051,72 @@ ${this.buildTimelineHtml(group.key)}`;
     // Wait for the WebPort editor iframe to have laid out its SVG symbols
     // before our top-window DOM work runs. Any synchronous mutation during
     // the layout pass races with WebPort's renderer and produces sub-pixel
-    // offsets + lost rotations. We poll for .wpCompObject in the iframe
-    // (the symbols themselves), then wait two rAFs so layout settles, then
-    // fire the callback. Safety timeout fires the callback anyway after
-    // 8 s so we don't strand the UI on a slow / blocked iframe.
+    // offsets + lost rotations.
+    //
+    // Detection strategy: poll the iframe for .wpCompObject *count* and only
+    // fire once the count has been STABLE across N consecutive 100 ms polls.
+    // Previously we fired on first-symbol-presence, which raced because
+    // WebPort renders symbols progressively (first ~50 ms, more arrive
+    // through ~600 ms). After fire(), wait two rAFs so layout commits.
+    //
+    // Safety timeout fires after 8 s so we don't strand the UI on a slow
+    // or blocked iframe. Diagnostic logs at console.debug let us see post-
+    // mortem whether stability detection was holding off long enough.
     function _waitForEditorIframeReady(cb) {
+        const STABLE_FRAMES = 3;     // ~300 ms of "no new symbols arriving"
+        const POLL_MS = 100;
+        const SAFETY_MS = 8000;
+        const t0 = performance.now();
         let fired = false;
-        const fire = () => {
+        let lastN = -1;
+        let stable = 0;
+        const trace = []; // recent (elapsed, count) samples for the debug log
+
+        const fire = (reason) => {
             if (fired) return;
             fired = true;
+            const elapsed = (performance.now() - t0).toFixed(0);
+            console.debug(CFG.logPrefix, 'iframe ready:', reason, '| elapsed:', elapsed + 'ms', '| count:', lastN, '| trace:', trace.slice(-8).join(' → '));
             // Two animation frames: first lets the latest paint commit,
             // second confirms it stuck before we mutate the navbar.
             requestAnimationFrame(() => requestAnimationFrame(cb));
         };
         const findIframe = () => document.querySelector('#content iframe');
-        const checkSymbols = () => {
+        const sample = () => {
             const f = findIframe();
             const doc = f && f.contentDocument;
-            if (doc && doc.querySelector('.wpCompObject')) { fire(); return true; }
+            const n = doc ? doc.querySelectorAll('.wpCompObject').length : 0;
+            trace.push(`t${(performance.now() - t0).toFixed(0)}=${n}`);
+            return n;
+        };
+        const check = () => {
+            const n = sample();
+            if (n > 0 && n === lastN) {
+                stable++;
+                if (stable >= STABLE_FRAMES) { fire('stable'); return true; }
+            } else {
+                stable = 0;
+            }
+            lastN = n;
             return false;
         };
-        if (checkSymbols()) return;
+        if (check()) return;
         const t = setInterval(() => {
             if (fired) { clearInterval(t); return; }
-            if (checkSymbols()) clearInterval(t);
-        }, 100);
+            if (check()) clearInterval(t);
+        }, POLL_MS);
         // Safety timeout: if WebPort never shows .wpCompObject (renamed class,
         // empty page, slow load) we still fire so pills/tooltips appear. Warn
         // loudly because this means the symbol-render race protection failed —
         // we're going to mutate the navbar without waiting for layout, which
         // can re-introduce the iframe symbol-offset bug from audit F8.
         setTimeout(() => {
-            if (!fired) console.warn(CFG.logPrefix, 'editor iframe ready timeout — .wpCompObject never appeared after 8s; symbol-render race may resurface');
             clearInterval(t);
-            fire();
-        }, 8000);
+            if (!fired) {
+                console.warn(CFG.logPrefix, 'editor iframe ready timeout — .wpCompObject count never stabilized after', SAFETY_MS + 'ms; symbol-render race may resurface. trace:', trace.slice(-12).join(' → '));
+                fire('timeout');
+            }
+        }, SAFETY_MS);
     }
 
     function _routePage() {
