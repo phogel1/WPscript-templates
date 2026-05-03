@@ -2,7 +2,7 @@
   "manufacturer": "Regin",
   "model": "Regio Midi (1.7)",
   "category": "Rumsregulator",
-  "version": "2026-05-02.1",
+  "version": "2026-05-03.1",
   "source": "regio_midi_ma30008_en.pdf (Rev. E, 2026-01-13)",
   "sourceVersion": "Regio Midi application v1.7",
   "notes": "Generell mall för hela Regio Midi-familjen v1.7. Samma firmware och Modbus-karta i alla 14 hårdvarumodeller — skillnaden ligger i fysiska I/O (analog 0-10 V vs 3-stegs fläktreläer DO1-DO3 vs 3-punkts DO1-DO5), närvaroknapp, display, börvärdesratt, samt om CO₂-givare är inbyggd, extern eller saknas. Välj rätt modellvariant i 'Regulator-modell' så filtreras irrelevanta dropdowns automatiskt med hjälp av hjälptexterna nedan. Variantöversikten utesluter '-BLACK' eftersom det enbart är svart hölje. RCC-modeller har inbyggd CO₂-givare; RC-…3DOC/…3DFOC har extern CO₂-ingång på AI2; RC-C3 / RC-C3H / RC-C3O har varken inbyggd eller extern CO₂. WebPort-konvention för adresserna: Diskreta ingångar = 10000+offset, Coils = 0+offset, Input registers = 30000+offset, Holding registers = 40000+offset (PDF:n använder 1-baserade offsets). multiSlave är aktiverat: userscriptet sätter slav-id framför adressen.",
@@ -29,6 +29,8 @@
     "co2_hal":        { "name": "{prefix}_AL",          "device": "{prefix}", "address": "10041", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "CO₂ högnivålarm aktivt",                 "alarmoptions": "", "trendoptions": "" },
     "window_al":      { "name": "{prefix}_AL1",         "device": "{prefix}", "address": "10013", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Fönsterkontakt - öppet fönster",         "alarmoptions": "", "trendoptions": "" },
     "condense_al":    { "name": "{prefix}_AL2",         "device": "{prefix}", "address": "10014", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Kondenslarm aktivt",                     "alarmoptions": "", "trendoptions": "" },
+
+    "comm_fail_al":   { "name": "{prefix}_AL3",         "device": "{prefix}", "address": "30011{IQ5}", "datatype": "UINT", "rawmin": 1, "rawmax": 0, "engmin": 0, "engmax": 1, "unit": "", "format": "0", "description": "Kommunikationsfel — rumstemp ej uppdaterad senaste 5 min (1=fel, 0=OK). WebPort {IQ5}-modifieraren returnerar 1 när kommunikation OK + värdet lästs senaste 5 min; vi inverterar via skalning (rawmin=1→engmin=0, rawmax=0→engmax=1) så taggvärdet följer larmkonvention 1=aktivt larm.", "alarmoptions": "", "trendoptions": "" },
 
     "room_temp_hal":  { "name": "{prefix}_HAL",         "device": "{prefix}", "address": "10032", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Rumstemperatur högtemperaturlarm",       "alarmoptions": "", "trendoptions": "" },
     "room_temp_lal":  { "name": "{prefix}_LAL",         "device": "{prefix}", "address": "10033", "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",    "format": "0",   "description": "Rumstemperatur lågtemperaturlarm",       "alarmoptions": "", "trendoptions": "" },
@@ -240,6 +242,7 @@
       "label": "Larm och givarfel",
       "options": [
         { "id": "room_temp_alarms", "label": "Hög/låg rumstemperatur",                  "default": true,  "tags": ["room_temp_hal", "room_temp_lal", "room_temp_hi_sp", "room_temp_lo_sp"] },
+        { "id": "comm_fail",        "label": "Kommunikationsfel (rumstemp ej läst senaste 5 min)", "default": true, "tags": ["comm_fail_al"] },
         { "id": "window",           "label": "Fönsterkontakt",                          "default": false, "tags": ["window_al"] },
         { "id": "condense",         "label": "Kondensgivare (KG-A/1)",                  "default": false, "tags": ["condense_al"] },
         { "id": "run_ind",          "label": "Driftindikering från externt aggregat",   "default": false, "tags": ["run_indication"] }
