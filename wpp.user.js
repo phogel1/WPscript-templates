@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.1225
+// @version      7.4.20260503.1257
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -2526,8 +2526,21 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         tbEl.appendChild(Object.assign(document.createElement('span'),{className:'td'}));
 
         // Batch field editor
-        const DROPDOWN_FIELDS = ['device','datatype'];
+        const DROPDOWN_FIELDS = ['device','datatype','p'];
         const TOGGLE_FIELDS = ['isalarm_on','isalarm_off','istrend_on','istrend_off'];
+        // Hardcoded enums for fields whose options WebPort renders client-side
+        // (so getSelectOpts() doesn't see them on the edit form). Currently
+        // only Larmklass falls into this bucket — the inline tag-table cells
+        // also render these same five values from a script template.
+        const STATIC_OPTIONS = {
+            p: [
+                { value: 'OKLASSAD', text: 'OKLASSAD' },
+                { value: 'A', text: 'A' },
+                { value: 'B', text: 'B' },
+                { value: 'C', text: 'C' },
+                { value: 'D', text: 'D' },
+            ],
+        };
         const bfSel=document.createElement('select');bfSel.className='fil';
         [{v:'',l:'Redigera fält...'},{v:'isalarm_on',l:'Larm PÅ'},{v:'isalarm_off',l:'Larm AV'},{v:'istrend_on',l:'Trend PÅ'},{v:'istrend_off',l:'Trend AV'},
          {v:'device',l:'IO-Enhet'},{v:'datatype',l:'Datatyp'},
@@ -2549,6 +2562,17 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 bfValWrap.style.display='none';
             } else if(DROPDOWN_FIELDS.includes(field)){
                 bfValWrap.style.display='';
+                // Static enums (e.g. Larmklass `p`) render synchronously without
+                // an HTTP fetch — WebPort doesn't expose those options in the
+                // edit form so getSelectOpts() returns empty for them.
+                if (STATIC_OPTIONS[field]) {
+                    const sel2=document.createElement('select');sel2.className='fil';sel2.id='bf-val';
+                    for(const o of STATIC_OPTIONS[field]){
+                        const opt=document.createElement('option');opt.value=o.value;opt.textContent=o.text;sel2.appendChild(opt);
+                    }
+                    bfValWrap.appendChild(sel2);
+                    return;
+                }
                 // Show a loading select immediately so the user sees feedback
                 // — getSelectOpts() does an HTTP fetch on first call (~150-500ms).
                 const loading=document.createElement('select');
@@ -2632,6 +2656,23 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                     try {
                         await fetchFormAndSave(tag, fd=>fd.set(field,val));
                         if(colMap[field]&&row.cells[colMap[field]]) row.cells[colMap[field]].textContent=displayVal;
+                        // Larmklass has its own inline select rendered via the
+                        // injected larm column (not in colMap) — refresh both
+                        // the cache and the visible select so the user sees
+                        // the new class without a row redraw.
+                        if (field === 'p') {
+                            larmCache[tag] = val;
+                            cacheTs[tag] = Date.now();
+                            const lSel = row.querySelector('.larm-sel');
+                            if (lSel) {
+                                if (![...lSel.options].some(o => o.value === val)) {
+                                    const o = document.createElement('option'); o.value = val; o.textContent = val;
+                                    lSel.insertBefore(o, lSel.firstChild);
+                                }
+                                lSel.value = val;
+                                lSel.className = 'larm-sel' + (val==='A'?' lk-a':val==='B'?' lk-b':val==='C'?' lk-c':val==='D'?' lk-d':'');
+                            }
+                        }
                         colorRow(row);
                     } finally { row.classList.remove('inu-saving'); done++; setLabel(); }
                 };
