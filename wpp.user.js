@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.1015
+// @version      7.4.20260503.1046
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -1566,12 +1566,22 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         if (!r.ok) throw new Error('actionadd HTTP ' + r.status);
     }
 
-    // Batch-create with concurrency-capped dispatch + progress callback.
-    // progressCb(done, total, failing[]) fires after each tag completes (in any order).
-    async function createTagBatch(tags, progressCb) {
+    // Batch-create with concurrency-capped dispatch + progress callback +
+    // cooperative cancellation. progressCb(done, total, failing[], skipped)
+    // fires after each tag completes (in any order). The optional `abort`
+    // object can be set to {aborted:true} from outside to stop processing
+    // remaining items; in-flight requests still complete (we don't kill
+    // active fetches, just stop dispatching new ones).
+    async function createTagBatch(tags, progressCb, abort) {
         const failing = [];
-        let done = 0;
+        let done = 0, skipped = 0;
         const results = await runWithConcurrency(tags, BULK_CONCURRENCY, async (t) => {
+            if (abort && abort.aborted) {
+                skipped++;
+                done++;
+                if (progressCb) progressCb(done, tags.length, failing, skipped);
+                return;
+            }
             try {
                 await createTagNative(t);
                 logAppend('success', `Skapade tagg: ${t.name}`, 'inu');
@@ -1582,12 +1592,12 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 throw e; // mark as failed in results — already recorded above
             } finally {
                 done++;
-                if (progressCb) progressCb(done, tags.length, failing);
+                if (progressCb) progressCb(done, tags.length, failing, skipped);
             }
         });
         // results array is unused — failing[] is the source of truth.
         void results;
-        return failing;
+        return { failing, skipped };
     }
 
     // ----- UI -----
@@ -2349,7 +2359,22 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             resBody.classList.toggle('open');
         });
         q('.tpl-close').addEventListener('click', () => m.remove());
-        cancelBtn.addEventListener('click', () => m.remove());
+
+        // Cancel button doubles as "abort in-flight bulk creation". When a
+        // creation is running, _bulkAbort is set and clicking cancel flips
+        // its `aborted` flag. Workers see the flag on their next pickup and
+        // skip remaining items (in-flight requests still finish — we don't
+        // kill active fetches). When idle, cancel just closes the modal.
+        let _bulkAbort = null;
+        cancelBtn.addEventListener('click', () => {
+            if (_bulkAbort) {
+                _bulkAbort.aborted = true;
+                cancelBtn.disabled = true;
+                cancelBtn.textContent = 'Avbryter…';
+                return;
+            }
+            m.remove();
+        });
 
         addBtn.addEventListener('click', async () => {
             if (!currentTpl) return;
@@ -2388,24 +2413,43 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             }
 
             addBtn.disabled = true;
-            cancelBtn.disabled = true;
+            // cancelBtn stays ENABLED — clicking it during a long bulk-create
+            // sets _bulkAbort.aborted so the worker stops dispatching new
+            // tags. Without this the user has no escape hatch on a 7000+ tag
+            // run and has to sit through it or close the tab.
+            _bulkAbort = { aborted: false };
             progEl.classList.add('on');
             progText.textContent = `Skapar 0 / ${toCreate.length}...`;
             progFill.style.width = '0%';
 
-            const failing = await createTagBatch(toCreate, (done, total, fails) => {
-                progText.textContent = `Skapar ${done} / ${total}...` + (fails.length ? ` (${fails.length} fel)` : '');
+            const { failing, skipped } = await createTagBatch(toCreate, (done, total, fails, sk) => {
+                const skipNote = sk > 0 ? ` (${sk} hoppade över)` : '';
+                const failNote = fails.length ? ` (${fails.length} fel)` : '';
+                progText.textContent = `Skapar ${done} / ${total}...${failNote}${skipNote}`;
                 progFill.style.width = (done / total * 100).toFixed(1) + '%';
-            });
+            }, _bulkAbort);
+
+            const wasAborted = _bulkAbort.aborted;
+            _bulkAbort = null;
+            cancelBtn.disabled = false;
+            cancelBtn.textContent = 'Avbryt';
+
+            const created = toCreate.length - failing.length - skipped;
+            if (wasAborted) {
+                toastOk(`Avbruten — ${created} taggar skapade, ${skipped} hoppade över` + (failing.length ? `, ${failing.length} fel` : ''));
+                m.remove();
+                runInPage('location.reload()');
+                return;
+            }
 
             if (failing.length === toCreate.length) {
                 setStatus('Alla taggar misslyckades. Kontrollera konsolen.', true);
-                addBtn.disabled = false; cancelBtn.disabled = false;
+                addBtn.disabled = false;
                 progEl.classList.remove('on');
                 return;
             }
 
-            toastOk(`${toCreate.length - failing.length} taggar skapade` + (failing.length ? `, ${failing.length} fel (se aktivitetsloggen)` : ''));
+            toastOk(`${created} taggar skapade` + (failing.length ? `, ${failing.length} fel (se aktivitetsloggen)` : ''));
             m.remove();
             // Refresh the page to show new tags (same mechanism as the bulk flow)
             runInPage('location.reload()');
