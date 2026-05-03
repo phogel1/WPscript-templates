@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.0147
+// @version      7.4.20260503.1015
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -546,7 +546,9 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             if (ul) { ul.style.flex = '1'; ul.style.overflowY = 'auto'; ul.style.minHeight = '0'; }
             if (p && treeNav.lastElementChild !== p) treeNav.appendChild(p); // keep panel last
         };
-        new MutationObserver(_pinLog).observe(treeNav, { childList: true });
+        // Tracked: WebPort can replace the sidebar on SPA nav, leaving this
+        // observer attached to detached DOM. _onSpaNav clears tracked observers.
+        trackObserver(new MutationObserver(_pinLog)).observe(treeNav, { childList: true });
         _pinLog();
         const collapsed = _logEntries.length === 0 ? true : GM_getValue('inu_log_collapsed', false);
         const panel = document.createElement('div');
@@ -1306,12 +1308,17 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
 
     function modalAdd(pre) {
         const p=pre||{rawmin:'0',rawmax:'10000',engmin:'0',engmax:'100',unit:'',format:'0.0'};
+        // Preset values come from GM_getValue (loadCustom). If a coworker's
+        // storage was synced/imported with malformed data — or if a preset
+        // edited via "Edit preset" path stored e.g. `" onfocus=alert(1) x="` —
+        // we'd otherwise inject HTML attributes. Escape every interpolation.
+        const e = escHtml;
         const m=modal(`
 <h3><i class="fa fa-plus"></i> Ny preset</h3>
 <label>Namn</label><input id="pn" placeholder="T.ex. Min sensor (0…500)">
-<div class="fr"><div><label>Rå-min</label><input id="p1" value="${p.rawmin}"></div><div><label>Rå-max</label><input id="p2" value="${p.rawmax}"></div></div>
-<div class="fr"><div><label>Vy-min</label><input id="p3" value="${p.engmin}"></div><div><label>Vy-max</label><input id="p4" value="${p.engmax}"></div></div>
-<div class="fr"><div><label>Enhet</label><input id="p5" value="${p.unit}"></div><div><label>Format</label><input id="p6" value="${p.format}"></div></div>
+<div class="fr"><div><label>Rå-min</label><input id="p1" value="${e(p.rawmin)}"></div><div><label>Rå-max</label><input id="p2" value="${e(p.rawmax)}"></div></div>
+<div class="fr"><div><label>Vy-min</label><input id="p3" value="${e(p.engmin)}"></div><div><label>Vy-max</label><input id="p4" value="${e(p.engmax)}"></div></div>
+<div class="fr"><div><label>Enhet</label><input id="p5" value="${e(p.unit)}"></div><div><label>Format</label><input id="p6" value="${e(p.format)}"></div></div>
 <div class="bt"><button class="bx" id="pc">Avbryt</button><button class="bok" id="ps">Spara</button></div>`);
         m.querySelector('#pc').addEventListener('click',()=>m.remove());
         m.querySelector('#ps').addEventListener('click',()=>{
@@ -3206,7 +3213,11 @@ ${delSection}
         if (Object.keys(sessionChanges).length > 0 || pendingDeletes.size > 0) { e.preventDefault(); e.returnValue = ''; }
     });
 
+    // Tag-page keyboard shortcuts. Gated on _inuTagPageActive so we don't hijack
+    // Ctrl+S / Ctrl+A on every non-WebPort site the user happens to be on
+    // (the @match pattern is intentionally broad — see audit F6).
     document.addEventListener('keydown',e=>{
+        if(!_inuTagPageActive) return;
         // Don't trigger when typing in inputs
         if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT') return;
         // Ctrl+S — trigger save
@@ -6475,25 +6486,33 @@ ${this.buildTimelineHtml(group.key)}`;
             }, 200);
         };
 
-        // Re-run after every iframe reload so toolbar survives WebPort rebuilds
+        // Re-run after every iframe reload so toolbar survives WebPort rebuilds.
+        // Stored on the iframe so cleanupPageEditor can removeEventListener it
+        // (otherwise WebPort reusing the same iframe across pageid changes
+        // accumulates listeners every visit — audit follow-up F-D).
         iframe.addEventListener('load', waitForSymbols);
+        iframe.__inuEditorLoadListener = waitForSymbols;
         waitForSymbols();
     }
 
     let devMutBusy = false;
+    let _devicePageActive = false;
+    function _resetDevicePageActive() { _devicePageActive = false; }
     async function initDevicePage() {
+        if (_devicePageActive) return; // idempotency guard (mirrors _inuTagPageActive)
+        _devicePageActive = true;
         console.log(CFG.logPrefix, 'v' + CFG.version, 'Activating (IO-Enheter)');
         injectStyles();
         addDeviceHeaders();
         await addDeviceColumns();
         initDeviceContextMenu();
         const tb = document.querySelector('#devicetable tbody');
-        if (tb) new MutationObserver(() => {
+        if (tb) trackObserver(new MutationObserver(() => {
             if (devMutBusy) return;
             devMutBusy = true;
             addDeviceHeaders();
             addDeviceColumns().finally(() => { devMutBusy = false; });
-        }).observe(tb, { childList: true });
+        })).observe(tb, { childList: true });
     }
 
     // ============================================================
@@ -6882,13 +6901,19 @@ ${this.buildTimelineHtml(group.key)}`;
         // because the listener is on the iframe itself (which the host page
         // reuses across pageid changes). The previous polling implementation
         // was the largest interval-leak source on long sessions (audit F2).
-        iframe.addEventListener('load', () => {
-            const curDoc = iframe.contentDocument || iframe.contentWindow?.document;
-            if (curDoc && curDoc !== _diagramTooltipDoc) {
-                _diagramTooltipDoc = null;
-                initDiagramTooltip();
-            }
-        });
+        // Install AT MOST ONCE per iframe element; otherwise every recursive
+        // re-init adds another listener and they all stack up.
+        if (!iframe.__inuTooltipLoadListener) {
+            const onLoad = () => {
+                const curDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (curDoc && curDoc !== _diagramTooltipDoc) {
+                    _diagramTooltipDoc = null;
+                    initDiagramTooltip();
+                }
+            };
+            iframe.addEventListener('load', onLoad);
+            iframe.__inuTooltipLoadListener = onLoad;
+        }
 
         } catch (e) { console.error(CFG.logPrefix, 'Diagram tooltip init failed:', e); }
     }
@@ -7092,6 +7117,12 @@ ${this.buildTimelineHtml(group.key)}`;
         }
         // Also remove toolbar from outer page (fallback injection path)
         document.getElementById('inu-editor-toolbar')?.remove();
+        // Detach the iframe-load listener so it doesn't accumulate across
+        // pageid changes (WebPort reuses the iframe element, not just its doc).
+        if (_editorIframe && _editorIframe.__inuEditorLoadListener) {
+            try { _editorIframe.removeEventListener('load', _editorIframe.__inuEditorLoadListener); } catch (e) { /* iframe may already be detached */ }
+            delete _editorIframe.__inuEditorLoadListener;
+        }
         _editorIframe = null;
         // Disconnect tracked observers (editor's class+style observers, plus
         // the tag-table observer on tag pages — both share _trackedObservers).
@@ -9198,6 +9229,19 @@ ${tuningHtml}
         // Tag-table observers belong to the previous route — disconnect them
         // so a long session doesn't accumulate dead observers on detached DOM.
         if (!isInuTagPage()) { disconnectTrackedObservers(); _resetInuTagPageActive(); }
+        // Same guard for the device page — without this, navigating away and
+        // back doubles up the device-table MutationObserver and re-registers
+        // $.contextMenu (which jQuery happily allows, breaking right-clicks).
+        if (!isDevicePage()) { _resetDevicePageActive(); }
+        // Tag-to-tag SPA navigation: /tag/all → /tag/errors keeps isInuTagPage()
+        // true so the guard above doesn't fire, but the new route eventually
+        // mounts a fresh tagtable that needs its own toolbar wiring. Reset the
+        // flag so the next _initInuTagPage() call does the work. Caveat: if
+        // _routePage() finds the OLD tagtable still mounted, init runs against
+        // it; rows arrive into the new tagtable without our column decorations
+        // until the user reloads. Acceptable mid-cost — full fix needs a delay
+        // or a tagtable-id-change observer (deferred to Phase 3 architecture).
+        if (isInuTagPage()) { disconnectTrackedObservers(); _resetInuTagPageActive(); }
         // Page-scoped timers (content-page value polling) — cancel on every
         // route change. Subsystems that still want a polling loop after the
         // nav re-register their own timer in their init function.
