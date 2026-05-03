@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.1218
+// @version      7.4.20260503.1225
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -2385,29 +2385,36 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             const toCreate = resolved.filter(t => !uncheckedIds.has(t._id));
             if (!toCreate.length) return;
 
-            // Collision detection — by (device, address), not by name. Modbus
-            // uniqueness is per register address; a name collision would be caught
-            // by WebPort anyway, but address collisions silently break existing
-            // tags so they're the real problem to flag up-front.
+            // Collision detection — both by tag name AND by (device, address).
+            // Either kind of collision is a reason to skip: name collisions
+            // because WebPort's behaviour on /tag/actionadd with a duplicate
+            // name is unverified (could overwrite, reject, or 500); address
+            // collisions because two tags with the same (device, address) on
+            // the same Modbus bus silently fight each other in WebPort's
+            // poller and corrupt readings. We collapse both checks into one
+            // confirm dialog so the user sees the full damage list once.
+            const existingNames = new Set(_tplExistingTags());
             const addrMap = _tplExistingAddressesByDevice();
             const collisions = [];
             for (const t of toCreate) {
-                const key = `${t.device || ''}|${t.address}`;
-                if (addrMap.has(key)) collisions.push({ tag: t, existingName: addrMap.get(key) });
+                const reasons = [];
+                if (existingNames.has(t.name)) reasons.push('namn finns redan');
+                const addrKey = `${t.device || ''}|${t.address}`;
+                if (addrMap.has(addrKey)) reasons.push(`adress ${t.address} → ${addrMap.get(addrKey)}`);
+                if (reasons.length) collisions.push({ tag: t, reasons });
             }
             if (collisions.length) {
-                const sample = collisions.slice(0, 5)
-                    .map(c => `${c.tag.address} → redan ${c.existingName}`)
+                const sample = collisions.slice(0, 6)
+                    .map(c => `${c.tag.name}  (${c.reasons.join('; ')})`)
                     .join('\n  ');
-                const more = collisions.length > 5 ? `\n  … (+${collisions.length - 5} till)` : '';
+                const more = collisions.length > 6 ? `\n  … (+${collisions.length - 6} till)` : '';
                 const ok = confirm(
-                    `${collisions.length} Modbus-adress(er) används redan av befintliga taggar:\n\n  ${sample}${more}\n\nFortsätt och hoppa över dem?`
+                    `${collisions.length} tagg(ar) krockar med befintliga (namn eller Modbus-adress):\n\n  ${sample}${more}\n\nFortsätt och hoppa över dem? (Befintliga taggar lämnas orörda.)`
                 );
                 if (!ok) return;
-                const skipAddrs = new Set(collisions.map(c => `${c.tag.device || ''}|${c.tag.address}`));
+                const skipNames = new Set(collisions.map(c => c.tag.name));
                 for (let i = toCreate.length - 1; i >= 0; i--) {
-                    const key = `${toCreate[i].device || ''}|${toCreate[i].address}`;
-                    if (skipAddrs.has(key)) toCreate.splice(i, 1);
+                    if (skipNames.has(toCreate[i].name)) toCreate.splice(i, 1);
                 }
                 if (!toCreate.length) return;
             }
