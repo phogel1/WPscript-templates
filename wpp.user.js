@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260503.1257
+// @version      7.4.20260504.1130
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -1339,7 +1339,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     // lazy-fetched from TEMPLATE_BASE_URL and cached in GM storage.
     const TEMPLATE_BASE_URL = 'https://phogel1.github.io/static-assets/';
     const TEMPLATE_INDEX = {
-        version: '2026-05-03.2',
+        version: '2026-05-04',
         manufacturers: [
             {
                 id: 'ivprodukt', name: 'IVProdukt',
@@ -1357,6 +1357,12 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 id: 'regin', name: 'Regin',
                 models: [
                     { id: 'regio-midi', name: 'Regio Midi (1.7) — alla rumsregulatorer', file: 'regin/regio-midi.json', category: 'Rumsregulator' }
+                ]
+            },
+            {
+                id: 'swegon', name: 'Swegon',
+                models: [
+                    { id: 'react', name: 'REACT GMB (VAV/CAV-spjäll, alla varianter)', file: 'swegon/react.json', category: 'Spjäll' }
                 ]
             },
             {
