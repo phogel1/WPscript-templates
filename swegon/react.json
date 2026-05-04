@@ -2,7 +2,7 @@
   "manufacturer": "Swegon",
   "model": "REACT (Gruner GMB)",
   "category": "Spjäll",
-  "version": "2026-05-04.9",
+  "version": "2026-05-04.10",
   "source": "swegon react modbus.pdf (Gruner — Modbus-inställningar, 20231207)",
   "sourceVersion": "20231207",
   "notes": "Slimmad mall för Swegon REACT-familjen (Gruner GMB-aktuator, RTU RS-485, FC 03 läs / FC 06 skriv enskilt). 9 taggar per damper för att hålla nere busstryck. Standardenhet l/s — ändra rawmax/engmax/unit per projekt vid annan enhet eller annan dampermodell (P/PX kör Pa). multiSlave aktiverat för shared bus bakom Moxa. Adressering 1-base Modicon (PDF reg 0 = 40001).",
@@ -11,17 +11,17 @@
   "multiSlave": true,
 
   "tags": {
-    "meas_abs": { "name": "{prefix}_PV",  "device": "{prefix}", "address": "40008", "datatype": "UINT", "rawmin": 0, "rawmax": 1000,  "engmin": 0, "engmax": 1000, "unit": "l/s", "format": "0", "description": "Aktuellt flöde",                  "alarmoptions": "", "trendoptions": "es:0" },
-    "meas_pct": { "name": "{prefix}_PV1", "device": "{prefix}", "address": "40007", "datatype": "UINT", "rawmin": 0, "rawmax": 10000, "engmin": 0, "engmax": 100,  "unit": "%",   "format": "0", "description": "Aktuellt flöde i %",             "alarmoptions": "", "trendoptions": "es:0" },
-    "pos_rel":  { "name": "{prefix}_PV2", "device": "{prefix}", "address": "40005", "datatype": "UINT", "rawmin": 0, "rawmax": 10000, "engmin": 0, "engmax": 100,  "unit": "%",   "format": "0", "description": "Spjällposition",                 "alarmoptions": "", "trendoptions": "es:0" },
+    "meas_abs": { "name": "{prefix}_PV",  "device": "{prefix}", "address": "40008", "datatype": "INT", "rawmin": 0, "rawmax": 1000,  "engmin": 0, "engmax": 1000, "unit": "l/s", "format": "0", "description": "Aktuellt flöde",                  "alarmoptions": "", "trendoptions": "es:0" },
+    "meas_pct": { "name": "{prefix}_PV1", "device": "{prefix}", "address": "40007", "datatype": "INT", "rawmin": 0, "rawmax": 10000, "engmin": 0, "engmax": 100,  "unit": "%",   "format": "0", "description": "Aktuellt flöde i %",             "alarmoptions": "", "trendoptions": "es:0" },
+    "pos_rel":  { "name": "{prefix}_PV2", "device": "{prefix}", "address": "40005", "datatype": "INT", "rawmin": 0, "rawmax": 10000, "engmin": 0, "engmax": 100,  "unit": "%",   "format": "0", "description": "Spjällposition",                 "alarmoptions": "", "trendoptions": "es:0" },
 
-    "sp":       { "name": "{prefix}_SP",  "device": "{prefix}", "address": "40001", "datatype": "UINT", "rawmin": 0, "rawmax": 10000, "engmin": 0, "engmax": 100,  "unit": "%",   "format": "0", "description": "Börvärde flöde",                 "alarmoptions": "", "trendoptions": "es:0" },
-    "override": { "name": "{prefix}_SP8", "device": "{prefix}", "address": "40002", "datatype": "UINT", "rawmin": 0, "rawmax": 8,     "engmin": 0, "engmax": 8,    "unit": "",    "format": "0", "description": "Tvångsstyrning (0=Auto, 1=Öppet, 2=Stängt, 3=Min, 4=Max, 5=Mellan, 6=Snabbt öppet, 7=Snabbt stängt, 8=Stopp)", "alarmoptions": "", "trendoptions": "" },
+    "sp":       { "name": "{prefix}_SP",  "device": "{prefix}", "address": "40001", "datatype": "INT", "rawmin": 0, "rawmax": 10000, "engmin": 0, "engmax": 100,  "unit": "%",   "format": "0", "description": "Börvärde flöde",                 "alarmoptions": "", "trendoptions": "es:0" },
+    "override": { "name": "{prefix}_SP8", "device": "{prefix}", "address": "40002", "datatype": "INT", "rawmin": 0, "rawmax": 8,     "engmin": 0, "engmax": 8,    "unit": "",    "format": "0", "description": "Tvångsstyrning (0=Auto, 1=Öppet, 2=Stängt, 3=Min, 4=Max, 5=Mellan, 6=Snabbt öppet, 7=Snabbt stängt, 8=Stopp)", "alarmoptions": "", "trendoptions": "" },
 
-    "vmin_pct": { "name": "{prefix}_MIN", "device": "{prefix}", "address": "40106", "datatype": "UINT", "rawmin": 0, "rawmax": 10000, "engmin": 0, "engmax": 100,  "unit": "%",   "format": "0", "description": "Vmin",                           "alarmoptions": "", "trendoptions": "" },
-    "vmax_pct": { "name": "{prefix}_MAX", "device": "{prefix}", "address": "40107", "datatype": "UINT", "rawmin": 0, "rawmax": 10000, "engmin": 0, "engmax": 100,  "unit": "%",   "format": "0", "description": "Vmax",                           "alarmoptions": "", "trendoptions": "" },
-    "vmin_abs": { "name": "{prefix}_SP1", "device": "{prefix}", "address": "40121", "datatype": "UINT", "rawmin": 0, "rawmax": 1000,  "engmin": 0, "engmax": 1000, "unit": "l/s", "format": "0", "description": "Min flöde",                      "alarmoptions": "", "trendoptions": "" },
-    "vmax_abs": { "name": "{prefix}_SP2", "device": "{prefix}", "address": "40122", "datatype": "UINT", "rawmin": 0, "rawmax": 1000,  "engmin": 0, "engmax": 1000, "unit": "l/s", "format": "0", "description": "Max flöde",                      "alarmoptions": "", "trendoptions": "" }
+    "vmin_pct": { "name": "{prefix}_MIN", "device": "{prefix}", "address": "40106", "datatype": "INT", "rawmin": 0, "rawmax": 10000, "engmin": 0, "engmax": 100,  "unit": "%",   "format": "0", "description": "Vmin",                           "alarmoptions": "", "trendoptions": "" },
+    "vmax_pct": { "name": "{prefix}_MAX", "device": "{prefix}", "address": "40107", "datatype": "INT", "rawmin": 0, "rawmax": 10000, "engmin": 0, "engmax": 100,  "unit": "%",   "format": "0", "description": "Vmax",                           "alarmoptions": "", "trendoptions": "" },
+    "vmin_abs": { "name": "{prefix}_SP1", "device": "{prefix}", "address": "40121", "datatype": "INT", "rawmin": 0, "rawmax": 1000,  "engmin": 0, "engmax": 1000, "unit": "l/s", "format": "0", "description": "Min flöde",                      "alarmoptions": "", "trendoptions": "" },
+    "vmax_abs": { "name": "{prefix}_SP2", "device": "{prefix}", "address": "40122", "datatype": "INT", "rawmin": 0, "rawmax": 1000,  "engmin": 0, "engmax": 1000, "unit": "l/s", "format": "0", "description": "Max flöde",                      "alarmoptions": "", "trendoptions": "" }
   },
 
   "base": [
