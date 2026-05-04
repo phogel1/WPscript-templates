@@ -1,5 +1,5 @@
 {
-  "version": "2026-04-16",
+  "version": "2026-05-04",
   "manufacturers": [
     {
       "id": "ivprodukt",
@@ -13,6 +13,13 @@
       "name": "NIBE",
       "models": [
         { "id": "smo-s40", "name": "SMO S40 (orkestrator)", "file": "nibe/smo-s40.json", "category": "Värmepump" }
+      ]
+    },
+    {
+      "id": "swegon",
+      "name": "Swegon",
+      "models": [
+        { "id": "react", "name": "REACT GMB (VAV/CAV-spjäll)", "file": "swegon/react.json", "category": "Spjäll" }
       ]
     },
     {
