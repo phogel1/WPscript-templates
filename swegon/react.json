@@ -2,40 +2,32 @@
   "manufacturer": "Swegon",
   "model": "REACT (Gruner GMB)",
   "category": "Spjäll",
-  "version": "2026-05-04.8",
+  "version": "2026-05-04.9",
   "source": "swegon react modbus.pdf (Gruner — Modbus-inställningar, 20231207)",
   "sourceVersion": "20231207",
-  "notes": "VIKTIGT — SKRIV-FUNKTIONSKOD: Aktuatorn stödjer ENDAST FC 06 (Skriva enskilt holdingadress), inte FC 16 (Skriva multipla register). Verifiera vid driftsättning att WebPort:s Modbus-drivare använder FC 06 vid skrivningar — om en skrivning kvitteras med 'Illegal function' (felkod 01h) försöker drivaren använda FC 16. Standardbeteendet i de flesta Modbus-mastrar är FC 06 för enkla register, så detta brukar fungera automatiskt.\n\nVIKTIGT — TAGGANTAL & POLLNINGSHASTIGHET: Med multiSlave + 10 dampers genereras upp till ~170 taggar på en delad RS-485-buss. Vid 19200 baud tar varje Modbus RTU-transaktion ~30 ms vilket innebär ~5 s pollningscykel — skrivningar köar bakom läsningar. För att minska busstryck är basset trimmat till 6 taggar (PV, PV1, MNL, MXL, SP1, SP2); slave-id (SP5), enhetsväljare (SP6) och övriga konfig-register ligger i opt-in multiselect-sektioner som är OFF som default. Aktivera dem bara när du behöver dem för driftsättning.\n\nGenerell mall för hela Swegon REACT-familjen av VAV/CAV-spjäll och tryckreglerande spjäll med Gruner GMB-aktuator. Alla 7 hårdvarumodeller delar samma Modbus RTU-protokoll (RS-485, FC 03h läs / 06h skriv enskilt holdingadress) och samma registerkarta — variant-dropdownen styr vilka extra register som tas in. Modeller som täcks: V GMB (variabelflöde, ställdon 327VM-024-XX-MB-SWEV i storlek 05/10/15), V-SR GMB (V med fjäderåtergång, GUAC-DM3-MB), P GMB (tryck max 500 Pa, 327VM-024-XX-MB-SWEP i storlek 10/15), PX GMB (tryck max 300 Pa, GUAC-PM-DD3-MB), PX-SR GMB (PX med fjäderåtergång, GUAC-PM-DD3-MB), ALS GMB (anslutningslåda för VAV-don, 309VM-024-150-MB), M GMB (mätenhet utan reglering, GT-VM-DD3-MB). M skiljer sig genom att helt sakna setpoint-/override-/position-register (0/1/4/5/108/109) — endast flödesmätning. Failsafe-timeout (register 109) finns endast i V GMB och P GMB; de övriga har bara failsafe-position (108) med begränsade alternativ (V-SR/PX/PX-SR: 0=Senaste/1=Stänger/2=Öppnar; ALS/V/P: dessutom 3=Min/4=Mellan/5=Max). Override-enum är begränsad till 0-4 i V-SR/PX/PX-SR/ALS men 0-8 i V/P; felaktiga värden kvitterar aktuatorn med 'Illegal data value'. Adressering: WebPort använder 1-baserad Modicon-notation (PDF:ns register 0 = WebPort 40001, register 1 = 40002, register 130 = 40131, etc). Standard fabriksinställning slave-id 1, 19200 8E1 (displayinställning 14). multiSlave är aktiverat. Tagg-suffix följer INU SVG v2.0: PV/PV1-PV3 är värden, OP är analog återkopplingssignal, SP är canonical börvärde, SP1-SP8 är övriga inställningar (Vmin/Vmax abs, failsafe-pos, sp-mode, slave-id, unit-selector, function-bits, tvångsstyrning), MNL/MXL är Vmin/Vmax-begränsning i %, TD1 är failsafe-timeout. Tvångsstyrning ligger i SP8 (inte MCMD) eftersom MCMD är reserverat för 0/1/Auto-switchar; Swegons override har 9 lägen (0-8).",
+  "notes": "Slimmad mall för Swegon REACT-familjen (Gruner GMB-aktuator, RTU RS-485, FC 03 läs / FC 06 skriv enskilt). 9 taggar per damper för att hålla nere busstryck. Standardenhet l/s — ändra rawmax/engmax/unit per projekt vid annan enhet eller annan dampermodell (P/PX kör Pa). multiSlave aktiverat för shared bus bakom Moxa. Adressering 1-base Modicon (PDF reg 0 = 40001).",
   "defaultDevicePrefix": "HUSXX_ASXX_VAV##",
   "defaultSlaves": "1-10",
   "multiSlave": true,
 
   "tags": {
-    "meas_abs":         { "name": "{prefix}_PV",   "device": "{prefix}", "address": "40008", "datatype": "UINT", "rawmin": 0,    "rawmax": 65535, "engmin": 0,     "engmax": 65535, "unit": "l/s","format": "0",   "description": "Aktuellt flöde/tryck (vald enhet — default l/s; ändra till m³/h, cfm, Pa eller inWC efter SP6)",   "alarmoptions": "", "trendoptions": "es:0" },
-    "meas_pct":         { "name": "{prefix}_PV1",  "device": "{prefix}", "address": "40007", "datatype": "UINT", "rawmin": 0,    "rawmax": 10000, "engmin": 0,     "engmax": 100,   "unit": "%",  "format": "0",   "description": "Aktuellt flöde/tryck (% av nominellt)",                          "alarmoptions": "", "trendoptions": "es:0" },
-    "pos_rel":          { "name": "{prefix}_PV2",  "device": "{prefix}", "address": "40005", "datatype": "UINT", "rawmin": 0,    "rawmax": 10000, "engmin": 0,     "engmax": 100,   "unit": "%",  "format": "0",   "description": "Aktuell spjällposition (relativ %)",                             "alarmoptions": "", "trendoptions": "es:0" },
-    "pos_abs":          { "name": "{prefix}_PV3",  "device": "{prefix}", "address": "40006", "datatype": "UINT", "rawmin": 0,    "rawmax": 10000, "engmin": 0,     "engmax": 100,   "unit": "°",  "format": "0",   "description": "Aktuell spjällposition (grader, 0–100°)",                        "alarmoptions": "", "trendoptions": "es:0" },
-    "feedback":         { "name": "{prefix}_OP",   "device": "{prefix}", "address": "40011", "datatype": "UINT", "rawmin": 0,    "rawmax": 10000, "engmin": 0,     "engmax": 10000, "unit": "mV", "format": "0",   "description": "Återkopplingssignal — analog utgång (motsvarar 0(2)–10 V) i mV", "alarmoptions": "", "trendoptions": "es:0" },
+    "meas_abs": { "name": "{prefix}_PV",  "device": "{prefix}", "address": "40008", "datatype": "UINT", "rawmin": 0, "rawmax": 1000,  "engmin": 0, "engmax": 1000, "unit": "l/s", "format": "0", "description": "Aktuellt flöde",                  "alarmoptions": "", "trendoptions": "es:0" },
+    "meas_pct": { "name": "{prefix}_PV1", "device": "{prefix}", "address": "40007", "datatype": "UINT", "rawmin": 0, "rawmax": 10000, "engmin": 0, "engmax": 100,  "unit": "%",   "format": "0", "description": "Aktuellt flöde i %",             "alarmoptions": "", "trendoptions": "es:0" },
+    "pos_rel":  { "name": "{prefix}_PV2", "device": "{prefix}", "address": "40005", "datatype": "UINT", "rawmin": 0, "rawmax": 10000, "engmin": 0, "engmax": 100,  "unit": "%",   "format": "0", "description": "Spjällposition",                 "alarmoptions": "", "trendoptions": "es:0" },
 
-    "sp":               { "name": "{prefix}_SP",   "device": "{prefix}", "address": "40001", "datatype": "UINT", "rawmin": 0,    "rawmax": 10000, "engmin": 0,     "engmax": 100,   "unit": "%",  "format": "0",   "description": "Börvärde flöde/tryck (% mellan Vmin/Vmax eller Pmin/Pmax)",      "alarmoptions": "", "trendoptions": "es:0" },
-    "override":         { "name": "{prefix}_SP8",  "device": "{prefix}", "address": "40002", "datatype": "UINT", "rawmin": 0,    "rawmax": 8,     "engmin": 0,     "engmax": 8,     "unit": "",   "format": "0",   "description": "Tvångsstyrning (0=Auto, 1=Öppet, 2=Stängt, 3=Min, 4=Max, 5=Mellan, 6=Snabbt öppet, 7=Snabbt stängt, 8=Stopp; 5–8 endast V/P GMB)", "alarmoptions": "", "trendoptions": "" },
+    "sp":       { "name": "{prefix}_SP",  "device": "{prefix}", "address": "40001", "datatype": "UINT", "rawmin": 0, "rawmax": 10000, "engmin": 0, "engmax": 100,  "unit": "%",   "format": "0", "description": "Börvärde flöde",                 "alarmoptions": "", "trendoptions": "es:0" },
+    "override": { "name": "{prefix}_SP8", "device": "{prefix}", "address": "40002", "datatype": "UINT", "rawmin": 0, "rawmax": 8,     "engmin": 0, "engmax": 8,    "unit": "",    "format": "0", "description": "Tvångsstyrning (0=Auto, 1=Öppet, 2=Stängt, 3=Min, 4=Max, 5=Mellan, 6=Snabbt öppet, 7=Snabbt stängt, 8=Stopp)", "alarmoptions": "", "trendoptions": "" },
 
-    "vmin_pct":         { "name": "{prefix}_MNL",  "device": "{prefix}", "address": "40106", "datatype": "UINT", "rawmin": 0,    "rawmax": 10000, "engmin": 0,     "engmax": 100,   "unit": "%",  "format": "0",   "description": "Vmin/Pmin (% av nominellt) — minimibegränsning av börvärde",      "alarmoptions": "", "trendoptions": "" },
-    "vmax_pct":         { "name": "{prefix}_MXL",  "device": "{prefix}", "address": "40107", "datatype": "UINT", "rawmin": 0,    "rawmax": 10000, "engmin": 0,     "engmax": 100,   "unit": "%",  "format": "0",   "description": "Vmax/Pmax (% av nominellt) — maximibegränsning av börvärde",      "alarmoptions": "", "trendoptions": "" },
-    "vmin_abs":         { "name": "{prefix}_SP1",  "device": "{prefix}", "address": "40121", "datatype": "UINT", "rawmin": 0,    "rawmax": 65535, "engmin": 0,     "engmax": 65535, "unit": "l/s","format": "0",   "description": "Vmin/Pmin i vald enhet (default l/s; ändra efter SP6 om annan enhet valts)", "alarmoptions": "", "trendoptions": "" },
-    "vmax_abs":         { "name": "{prefix}_SP2",  "device": "{prefix}", "address": "40122", "datatype": "UINT", "rawmin": 0,    "rawmax": 65535, "engmin": 0,     "engmax": 65535, "unit": "l/s","format": "0",   "description": "Vmax/Pmax i vald enhet (default l/s; ändra efter SP6 om annan enhet valts)", "alarmoptions": "", "trendoptions": "" },
-    "failsafe_pos":     { "name": "{prefix}_SP3",  "device": "{prefix}", "address": "40109", "datatype": "UINT", "rawmin": 0,    "rawmax": 5,     "engmin": 0,     "engmax": 5,     "unit": "",   "format": "0",   "description": "Position vid kommunikationsbortfall (0=Senaste, 1=Stänger, 2=Öppnar, 3=Min, 4=Mellan, 5=Max; 3–5 endast V/P/ALS — V-SR/PX/PX-SR stödjer endast 0–2)", "alarmoptions": "", "trendoptions": "" },
-    "failsafe_timeout": { "name": "{prefix}_TD1",  "device": "{prefix}", "address": "40110", "datatype": "UINT", "rawmin": 0,    "rawmax": 65535, "engmin": 0,     "engmax": 65535, "unit": "s",  "format": "0",   "description": "Timeout för kommunikationsbortfall (s) — endast V GMB / P GMB",   "alarmoptions": "", "trendoptions": "" },
-    "sp_mode":          { "name": "{prefix}_SP4",  "device": "{prefix}", "address": "40123", "datatype": "UINT", "rawmin": 0,    "rawmax": 3,     "engmin": 0,     "engmax": 3,     "unit": "",   "format": "0",   "description": "Börvärde-/återkopplingsläge (0=Analog-Analog, 1=Modbus-Analog, 2=Modbus-Modbus, 3=Analog-Modbus)", "alarmoptions": "", "trendoptions": "" },
-    "modbus_addr":      { "name": "{prefix}_SP5",  "device": "{prefix}", "address": "40131", "datatype": "UINT", "rawmin": 1,    "rawmax": 247,   "engmin": 1,     "engmax": 247,   "unit": "",   "format": "0",   "description": "Modbus slave-ID lagrad i aktuator (1–247) — ändras sällan, opt-in",                       "alarmoptions": "", "trendoptions": "" },
-    "unit_selector":    { "name": "{prefix}_SP6",  "device": "{prefix}", "address": "40202", "datatype": "UINT", "rawmin": 0,    "rawmax": 6,     "engmin": 0,     "engmax": 6,     "unit": "",   "format": "0",   "description": "Enhetsväljare (0=l/s, 1=m³/h, 2=Pa, 3=inWC/1000, 6=cfm) — sätts en gång vid driftsättning, opt-in", "alarmoptions": "", "trendoptions": "" },
-    "function_bits":    { "name": "{prefix}_SP7",  "device": "{prefix}", "address": "40552", "datatype": "UINT", "rawmin": 0,    "rawmax": 65535, "engmin": 0,     "engmax": 65535, "unit": "",   "format": "0",   "description": "Funktionsbitar (bit 0: 0=0–10V, 1=2–10V signalområde; bit 6: gångriktning CW/CCW — får ej ändras)", "alarmoptions": "", "trendoptions": "" }
+    "vmin_pct": { "name": "{prefix}_MIN", "device": "{prefix}", "address": "40106", "datatype": "UINT", "rawmin": 0, "rawmax": 10000, "engmin": 0, "engmax": 100,  "unit": "%",   "format": "0", "description": "Vmin",                           "alarmoptions": "", "trendoptions": "" },
+    "vmax_pct": { "name": "{prefix}_MAX", "device": "{prefix}", "address": "40107", "datatype": "UINT", "rawmin": 0, "rawmax": 10000, "engmin": 0, "engmax": 100,  "unit": "%",   "format": "0", "description": "Vmax",                           "alarmoptions": "", "trendoptions": "" },
+    "vmin_abs": { "name": "{prefix}_SP1", "device": "{prefix}", "address": "40121", "datatype": "UINT", "rawmin": 0, "rawmax": 1000,  "engmin": 0, "engmax": 1000, "unit": "l/s", "format": "0", "description": "Min flöde",                      "alarmoptions": "", "trendoptions": "" },
+    "vmax_abs": { "name": "{prefix}_SP2", "device": "{prefix}", "address": "40122", "datatype": "UINT", "rawmin": 0, "rawmax": 1000,  "engmin": 0, "engmax": 1000, "unit": "l/s", "format": "0", "description": "Max flöde",                      "alarmoptions": "", "trendoptions": "" }
   },
 
   "base": [
-    "meas_abs", "meas_pct",
-    "vmin_pct", "vmax_pct",
-    "vmin_abs", "vmax_abs"
+    "meas_abs", "meas_pct", "pos_rel",
+    "sp", "override",
+    "vmin_pct", "vmax_pct", "vmin_abs", "vmax_abs"
   ],
 
   "config": [
@@ -43,38 +35,16 @@
       "id": "variant",
       "type": "dropdown",
       "label": "REACT-variant",
-      "help": "Välj rätt aktuator. Variantvalet styr vilka extra register som tas in — adresser delas mellan varianter men vissa register saknas i mätenhet/fjäderåtergångsmodeller.",
+      "help": "Bara dokumentation — alla varianter delar samma 9 taggar (M GMB stödjer endast PV/PV1, övriga register saknas).",
       "default": "v",
       "options": [
-        { "id": "v",     "label": "REACT V GMB — variabelflöde (327VM-024-XX-MB-SWEV)",                  "tags": ["sp", "override", "pos_rel", "failsafe_pos", "failsafe_timeout"] },
-        { "id": "v_sr",  "label": "REACT V-SR GMB — variabelflöde, fjäderåtergång (GUAC-DM3-MB)",         "tags": ["sp", "override", "pos_rel", "failsafe_pos"] },
-        { "id": "p",     "label": "REACT P GMB — tryckreglering max 500 Pa (327VM-024-XX-MB-SWEP)",      "tags": ["sp", "override", "pos_rel", "failsafe_pos", "failsafe_timeout"] },
-        { "id": "px",    "label": "REACT PX GMB — tryckreglering max 300 Pa (GUAC-PM-DD3-MB)",            "tags": ["sp", "override", "pos_rel", "failsafe_pos"] },
-        { "id": "px_sr", "label": "REACT PX-SR GMB — tryckreglering, fjäderåtergång (GUAC-PM-DD3-MB)",    "tags": ["sp", "override", "pos_rel", "failsafe_pos"] },
-        { "id": "als",   "label": "REACT ALS GMB — anslutningslåda VAV-don (309VM-024-150-MB)",          "tags": ["sp", "override", "pos_rel", "failsafe_pos"] },
-        { "id": "m",     "label": "REACT M GMB — mätenhet, endast flödesmätning (GT-VM-DD3-MB)",         "tags": [] }
-      ]
-    },
-    {
-      "id": "diagnostics",
-      "type": "multiselect",
-      "label": "Diagnostik",
-      "help": "Sällan-använda mätvärden för felsökning av aktuator och analoga signaler.",
-      "options": [
-        { "id": "pos_deg",  "label": "Position i grader (0–100°)",            "default": false, "tags": ["pos_abs"] },
-        { "id": "feedback", "label": "Återkopplingssignal mV (analog utgång)", "default": false, "tags": ["feedback"] }
-      ]
-    },
-    {
-      "id": "config_extras",
-      "type": "multiselect",
-      "label": "Konfigurationsregister (driftsättning)",
-      "help": "Permanenta inställningar — sätts vanligtvis en gång vid driftsättning, sällan i daglig drift. Lägg till bara om du behöver dem; varje extra tagg ökar Modbus-busstryck.",
-      "options": [
-        { "id": "modbus_addr",   "label": "Modbus slave-ID (verifiering)",                       "default": false, "tags": ["modbus_addr"] },
-        { "id": "unit_selector", "label": "Enhetsväljare (l/s, m³/h, cfm, Pa, inWC)",            "default": false, "tags": ["unit_selector"] },
-        { "id": "sp_mode",       "label": "Börvärde-/återkopplingsläge (Analog/Modbus)",         "default": false, "tags": ["sp_mode"] },
-        { "id": "func_bits",     "label": "Funktionsbitar (signaltyp 0–10/2–10 V, gångriktning)", "default": false, "tags": ["function_bits"] }
+        { "id": "v",     "label": "REACT V GMB — variabelflöde (327VM-024-XX-MB-SWEV)",            "tags": [] },
+        { "id": "v_sr",  "label": "REACT V-SR GMB — variabelflöde, fjäderåtergång",                "tags": [] },
+        { "id": "p",     "label": "REACT P GMB — tryckreglering 500 Pa (327VM-024-XX-MB-SWEP)",   "tags": [] },
+        { "id": "px",    "label": "REACT PX GMB — tryckreglering 300 Pa",                          "tags": [] },
+        { "id": "px_sr", "label": "REACT PX-SR GMB — tryckreglering, fjäderåtergång",              "tags": [] },
+        { "id": "als",   "label": "REACT ALS GMB — anslutningslåda VAV-don",                       "tags": [] },
+        { "id": "m",     "label": "REACT M GMB — mätenhet (saknar SP/SP8/PV2/MIN/MAX/SP1/SP2)",   "tags": [] }
       ]
     }
   ]
