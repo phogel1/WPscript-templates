@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.3.20260504.1105
-// @description  Enhanced UI for Kiona WebPort — start page editor
+// @version      7.4.20260503.1257
+// @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -22,6 +22,33 @@
     // our polling loop + DOM queries inside the iframe disrupts WebPort's
     // component rendering (rotations, positioning, SVG symbol loading).
     if (window !== window.top) return;
+
+    // ── Kill-switch URL params (debug/bisect) ─────────────────────
+    // Pass ?inu_off=all on the WebPort URL to disable the script
+    // entirely, or a comma-separated list of subsystems to disable
+    // individually (e.g. ?inu_off=editor,observers). Subsystem keys:
+    //   all        — abort init() entirely
+    //   editor     — skip initPageEditor (page edit mode)
+    //   content    — skip initContentPage (page view mode)
+    //   tooltip    — skip initDiagramTooltip
+    //   grid       — skip editorApplyGrid + grid branch in mutation observer
+    //   observers  — skip both MutationObservers in initPageEditor
+    //   focus      — skip iframe.contentWindow.focus()
+    //   tabindex   — skip iDoc.body.setAttribute('tabindex','-1')
+    //   midclick   — skip the middle-click capture-phase mousedown/auxclick handlers
+    //   pill       — skip injectBrandPill (top-menu INU button)
+    //   sources    — skip checkSources (tag source checker)
+    //   toastr     — skip hookToastr (toastr wrapper)
+    //   logpanel   — skip initLogPanel (activity log panel)
+    //   bodyobs    — skip the document.body MutationObserver fallback
+    const _INU_OFF = (() => {
+        const raw = new URLSearchParams(location.search).get('inu_off') || '';
+        const set = new Set(raw.split(',').map(s => s.trim()).filter(Boolean));
+        if (set.size) console.warn('[INU] kill-switch active: inu_off=', [...set].join(','));
+        return set;
+    })();
+    function inuOff(name) { return _INU_OFF.has('all') || _INU_OFF.has(name); }
+    if (inuOff('all')) return;
 
     // Only run on Kiona WebPort pages
     function isWebPort() {
@@ -53,9 +80,11 @@
     // PAGE DETECTION
     // ============================================================
     function isInuTagPage() {
+        // No row requirement — toolbar / column filters / template modal must
+        // render on a fresh install with zero tags. The MutationObserver on
+        // tbody picks up rows as they're added later.
         return !!(
             document.getElementById('tagtable') &&
-            document.querySelector('#tagtable tbody tr.tag') &&
             typeof unsafeWindow.SendFormMulti === 'function'
         );
     }
@@ -311,63 +340,42 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
 .mb .bt button { padding:6px 14px; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:600; }
 .mb .bok { padding:6px 14px; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:600; background:#5b6abf; color:#fff; } .mb .bok:hover { background:#4a58a8; }
 .mb .bx { background:#eee; color:#333; } .mb .bx:hover { background:#ddd; }
-.kr-ov { position:fixed; inset:0; background:#f5f6fa; z-index:100001; overflow-y:auto; font-size:13px; }
-.kr-hdr { display:flex; align-items:center; gap:12px; padding:12px 24px; background:#fff; border-bottom:2px solid #e0e0e0; position:sticky; top:0; z-index:2; }
-.kr-hdr h2 { margin:0; font-size:15px; font-weight:700; color:#222; }
-.kr-hdr .kr-sub { font-size:11px; color:#888; }
-.kr-hdr .kr-close { margin-left:auto; background:none; border:none; cursor:pointer; font-size:18px; color:#666; padding:2px 6px; border-radius:4px; }
-.kr-hdr .kr-close:hover { background:#f0f0f0; color:#333; }
-.kr-body { padding:20px 24px; max-width:1400px; margin:0 auto; }
-.kr-stats { display:flex; gap:10px; margin-bottom:16px; }
-.kr-stat { flex:1; background:#fff; border-radius:8px; padding:12px 16px; border:1px solid #e8e8e8; text-align:center; }
-.kr-stat .kn { font-size:26px; font-weight:700; color:#1b5e20; line-height:1.1; }
-.kr-stat .kn.warn { color:#e65100; }
-.kr-stat .kn.info { color:#5b6abf; }
-.kr-stat .kn.gray { color:#90a4ae; }
-.kr-stat .kl { font-size:11px; color:#666; margin-top:3px; }
-.kr-stat .ks { font-size:10px; color:#aaa; }
-.kr-charts { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:14px; }
-.kr-card { background:#fff; border-radius:8px; padding:14px 16px; border:1px solid #e8e8e8; }
-.kr-card h4 { margin:0 0 10px; font-size:10px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:.5px; }
-.kr-br { display:flex; align-items:center; gap:7px; margin-bottom:5px; }
-.kr-br-lbl { font-size:11px; color:#333; width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex-shrink:0; }
-.kr-br-trk { flex:1; height:13px; background:#f0f0f0; border-radius:3px; overflow:hidden; min-width:40px; }
-.kr-br-fill { height:100%; border-radius:3px; min-width:3px; }
-.kr-br-cnt { font-size:11px; color:#666; width:32px; text-align:right; flex-shrink:0; }
-.kr-cov { background:#fff; border-radius:8px; padding:14px 16px; border:1px solid #e8e8e8; margin-bottom:14px; }
-.kr-cov h4 { margin:0 0 10px; font-size:10px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:.5px; }
-.kr-covr { display:flex; align-items:center; gap:10px; margin-bottom:7px; }
-.kr-covr-lbl { font-size:12px; font-weight:600; width:50px; flex-shrink:0; }
-.kr-covr-trk { flex:1; height:18px; background:#f0f0f0; border-radius:4px; overflow:hidden; }
-.kr-covr-fill { height:100%; border-radius:4px; min-width:3px; }
-.kr-covr-pct { font-size:12px; font-weight:700; width:38px; text-align:right; flex-shrink:0; }
-.kr-covr-ct { font-size:11px; color:#888; }
-.kr-hyg { background:#fff; border-radius:8px; padding:14px 16px; border:1px solid #e8e8e8; }
-.kr-hyg h4 { margin:0 0 10px; font-size:10px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:.5px; }
-.kr-hyg-sec { margin-bottom:6px; }
-.kr-hyg-hdr { display:flex; align-items:center; gap:8px; padding:7px 10px; background:#f5f5f8; border-radius:5px; cursor:pointer; user-select:none; }
-.kr-hyg-hdr:hover { background:#ebebf5; }
-.kr-hyg-ico { font-size:10px; color:#aaa; transition:transform .15s; flex-shrink:0; }
-.kr-hyg-ttl { font-size:12px; font-weight:600; flex:1; color:#333; }
-.kr-hyg-badge { font-size:10px; font-weight:700; padding:1px 8px; border-radius:10px; background:#ef4444; color:#fff; }
-.kr-hyg-badge.ok { background:#4caf50; }
-.kr-hyg-badge.warn { background:#ff9800; }
-.kr-hyg-badge.info { background:#5b6abf; }
-.kr-hyg-body { padding:8px 10px 4px; display:none; }
-.kr-hyg-body.open { display:block; }
-.kr-tag { display:inline-block; background:#f0f0f0; border-radius:3px; padding:1px 6px; margin:2px; font-size:10px; font-family:monospace; color:#333; }
-.kr-sys-tbl { width:100%; border-collapse:collapse; font-size:12px; }
-.kr-sys-tbl th { text-align:left; padding:5px 8px; font-size:10px; font-weight:700; color:#888; border-bottom:2px solid #eee; white-space:nowrap; background:#fff; }
-.kr-sys-tbl td { padding:4px 8px; border-bottom:1px solid #f4f4f4; vertical-align:middle; }
-.kr-sys-tbl tbody tr:hover td { background:#f8f9ff; }
-.kr-sys-wrap { overflow-x:auto; max-height:420px; overflow-y:auto; }
 .tpl-modal .mb { width:980px; max-width:95vw; }
 .tpl-hdr { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
 .tpl-hdr h3 { margin:0; font-size:15px; flex:1; }
 .tpl-hdr .tpl-close { background:none; border:none; font-size:18px; cursor:pointer; color:#666; padding:2px 8px; border-radius:4px; }
 .tpl-hdr .tpl-close:hover { background:#f0f0f0; }
-.tpl-pickers { display:grid; grid-template-columns:1.2fr 1.5fr 1fr; gap:10px; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #eee; }
-.tpl-pickers > div { min-width:0; }
+.tpl-pickers { display:grid; grid-template-columns:1fr 1.3fr 1.4fr 1.2fr; gap:10px; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #eee; align-items:end; }
+.tpl-slaves-row { display:none; flex-direction:column; gap:8px; margin-bottom:14px; padding:8px 12px; background:#f8f9ff; border:1px solid #e3e6f3; border-radius:6px; }
+.tpl-slaves-row.on { display:flex; }
+.tpl-slaves-row .tpl-slaves-hdr { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.tpl-slaves-row label { font-size:10px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.4px; margin:0; }
+.tpl-slaves-row > input, .tpl-slaves-row .tpl-slaves-range > input { padding:5px 7px; border:1px solid #999; border-radius:4px; font-size:13px; font-weight:500; background:#fff; color:#222 !important; box-sizing:border-box; width:100%; font-family:monospace; }
+.tpl-slaves-row > input:focus, .tpl-slaves-row .tpl-slaves-range > input:focus { outline:2px solid #5b6abf; outline-offset:1px; border-color:#5b6abf; }
+.tpl-slaves-row.tpl-err > input, .tpl-slaves-row.tpl-err .tpl-slaves-range > input { border-color:#b91c1c; background:#fef2f2; }
+.tpl-slaves-row .tpl-slaves-range { display:none; }
+.tpl-slaves-row .tpl-slaves-range.on { display:block; }
+.tpl-slaves-row .tpl-slaves-help { font-size:11px; color:#666; line-height:1.3; }
+.tpl-slaves-row .tpl-slaves-help code { font-family:monospace; background:#fff; padding:1px 4px; border-radius:2px; color:#3a4ba0; border:1px solid #e3e6f3; }
+.tpl-slaves-row .tpl-slaves-summary { font-size:11px; color:#3a4ba0; font-weight:600; }
+.tpl-slaves-row .tpl-slaves-modes { display:flex; gap:0; align-items:center; }
+.tpl-slaves-row .tpl-slaves-modes button { padding:4px 10px; border:1px solid #b0b6d4; background:#fff; color:#3a4ba0; cursor:pointer; font-size:11px; font-weight:600; }
+.tpl-slaves-row .tpl-slaves-modes button:first-child { border-radius:4px 0 0 4px; }
+.tpl-slaves-row .tpl-slaves-modes button:last-child { border-radius:0 4px 4px 0; border-left:0; }
+.tpl-slaves-row .tpl-slaves-modes button.on { background:#3a4ba0; color:#fff; border-color:#3a4ba0; }
+.tpl-slaves-tbl { display:none; width:100%; border-collapse:collapse; font-size:12px; background:#fff; border:1px solid #e3e6f3; border-radius:4px; overflow:hidden; }
+.tpl-slaves-tbl.on { display:table; }
+.tpl-slaves-tbl th { background:#eef1ff; padding:5px 8px; text-align:left; font-size:10px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.4px; border-bottom:1px solid #e3e6f3; }
+.tpl-slaves-tbl td { padding:3px 6px; border-bottom:1px solid #f0f2f8; vertical-align:middle; }
+.tpl-slaves-tbl input { width:100%; padding:3px 6px; border:1px solid #ccc; border-radius:3px; font-family:monospace; font-size:12px; box-sizing:border-box; }
+.tpl-slaves-tbl input.tpl-err { border-color:#b91c1c; background:#fef2f2; }
+.tpl-slaves-tbl tr:last-child td { border-bottom:0; }
+.tpl-slaves-tbl .tpl-slaves-tbl-act { width:28px; text-align:center; }
+.tpl-slaves-tbl .tpl-slaves-tbl-act button { width:22px; height:22px; padding:0; border:0; background:transparent; color:#999; cursor:pointer; font-size:14px; line-height:1; border-radius:3px; }
+.tpl-slaves-tbl .tpl-slaves-tbl-act button:hover { background:#fef2f2; color:#b91c1c; }
+.tpl-slaves-tbl-add { margin-top:6px; padding:5px 12px; border:1px dashed #b0b6d4; background:#fff; color:#3a4ba0; cursor:pointer; font-size:11px; font-weight:600; border-radius:4px; }
+.tpl-slaves-tbl-add:hover { background:#eef1ff; }
+.tpl-pickers > div { min-width:0; display:flex; flex-direction:column; justify-content:flex-end; }
 .tpl-pickers label { display:block; font-size:10px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
 .tpl-pickers select, .tpl-pickers input { width:100%; padding:5px 7px; border:1px solid #999; border-radius:4px; font-size:13px; font-weight:500; box-sizing:border-box; background:#fff; color:#222 !important; }
 .tpl-pickers select:disabled, .tpl-pickers input:disabled { background:#f5f5f5; color:#666 !important; }
@@ -538,7 +546,9 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             if (ul) { ul.style.flex = '1'; ul.style.overflowY = 'auto'; ul.style.minHeight = '0'; }
             if (p && treeNav.lastElementChild !== p) treeNav.appendChild(p); // keep panel last
         };
-        new MutationObserver(_pinLog).observe(treeNav, { childList: true });
+        // Tracked: WebPort can replace the sidebar on SPA nav, leaving this
+        // observer attached to detached DOM. _onSpaNav clears tracked observers.
+        trackObserver(new MutationObserver(_pinLog)).observe(treeNav, { childList: true });
         _pinLog();
         const collapsed = _logEntries.length === 0 ? true : GM_getValue('inu_log_collapsed', false);
         const panel = document.createElement('div');
@@ -599,6 +609,35 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     // HTML escape helper — used anywhere values are interpolated into innerHTML
     function escHtml(val) { const d = document.createElement('div'); d.textContent = String(val ?? ''); return d.innerHTML; }
 
+    // Inject a script into the page scope so it can access page-scope jQuery
+    // and DataTables, which Tampermonkey's sandbox isolates us from.
+    // Removes the element synchronously after execution.
+    function runInPage(code) {
+        const sc = document.createElement('script');
+        sc.textContent = typeof code === 'function' ? `(${code})();` : code;
+        document.head.appendChild(sc);
+        sc.remove();
+    }
+
+    // Run an async worker over `items` with at most `limit` concurrent tasks.
+    // Returns a promise that resolves with an array of {ok, value, error} per item
+    // (preserving input order). Never rejects — failures are reported per item.
+    async function runWithConcurrency(items, limit, worker) {
+        const results = new Array(items.length);
+        let next = 0;
+        const runOne = async () => {
+            while (true) {
+                const i = next++;
+                if (i >= items.length) return;
+                try { results[i] = { ok: true, value: await worker(items[i], i) }; }
+                catch (e) { results[i] = { ok: false, error: e }; }
+            }
+        };
+        const workers = Array.from({ length: Math.min(limit, items.length) }, runOne);
+        await Promise.all(workers);
+        return results;
+    }
+
     function scl(row) {
         return {
             rawmin: row.cells[C.RMIN]?.textContent?.trim()||'0',
@@ -611,16 +650,11 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     }
     function fullSnap(row) {
         return {
-            io:     row.cells[C.IO]?.textContent?.trim()||'',
-            addr:   row.cells[C.ADDR]?.textContent?.trim()||'',
-            dtype:  row.cells[C.DTYPE]?.textContent?.trim()||'',
-            rawmin: row.cells[C.RMIN]?.textContent?.trim()||'0',
-            rawmax: row.cells[C.RMAX]?.textContent?.trim()||'0',
-            engmin: row.cells[C.EMIN]?.textContent?.trim()||'0',
-            engmax: row.cells[C.EMAX]?.textContent?.trim()||'0',
-            unit:   row.cells[C.UNIT]?.textContent?.trim()||'',
-            format: row.cells[C.FMT]?.textContent?.trim()||'0',
-            desc:   row.cells[C.DESC]?.textContent?.trim()||'',
+            ...scl(row),
+            io:    row.cells[C.IO]?.textContent?.trim()||'',
+            addr:  row.cells[C.ADDR]?.textContent?.trim()||'',
+            dtype: row.cells[C.DTYPE]?.textContent?.trim()||'',
+            desc:  row.cells[C.DESC]?.textContent?.trim()||'',
         };
     }
     function snapDiff(a, b) {
@@ -639,7 +673,8 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         const dt = row.cells[C.DTYPE]?.textContent?.trim();
         if (dt === 'DIGITAL') return false;
         const s = scl(row);
-        return s.rawmin==='0'&&s.rawmax==='0'&&s.engmin==='0'&&s.engmax==='0';
+        const z = v => parseFloat(v) === 0;
+        return z(s.rawmin) && z(s.rawmax) && z(s.engmin) && z(s.engmax);
     }
     function updCells(row, p) {
         if(row.cells[C.RMIN]) row.cells[C.RMIN].textContent=p.rawmin;
@@ -688,8 +723,46 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         });
     }
 
-    // Larmklass + isalarm + istrend cache
-    const larmCache = {}, alarmCache = {}, trendCache = {};
+    // Larmklass + isalarm + istrend caches.
+    // Stale-cache window: another tab/session can edit a tag without us knowing,
+    // so we only trust cache entries younger than CACHE_TTL_MS and refresh
+    // everything on visibility-change/focus.
+    const larmCache = {}, alarmCache = {}, trendCache = {}, cacheTs = {};
+    const CACHE_TTL_MS = 5 * 60 * 1000;
+    function cacheFresh(tag) {
+        const ts = cacheTs[tag];
+        return ts != null && (Date.now() - ts) < CACHE_TTL_MS;
+    }
+    function invalidateTagCaches() {
+        for (const k of Object.keys(cacheTs)) delete cacheTs[k];
+    }
+    // Re-fetch stale rows when the tab regains focus (covers cross-tab edits).
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') invalidateTagCaches();
+    });
+    window.addEventListener('focus', invalidateTagCaches);
+
+    // Concurrency-cap concurrent /tag/ActionEdit fan-out so we don't hammer the
+    // server with 250 parallel requests when DataTables redraws a large page.
+    const LARM_CONCURRENCY = 6;
+    // Cap for user-initiated bulk save loops (preset apply, batch field, S&R, deletes).
+    // Higher than LARM_CONCURRENCY because the user is actively waiting on these.
+    const BULK_CONCURRENCY = 8;
+    let _larmInFlight = 0;
+    const _larmQueue = [];
+    function _drainLarmQueue() {
+        while (_larmInFlight < LARM_CONCURRENCY && _larmQueue.length) {
+            const job = _larmQueue.shift();
+            _larmInFlight++;
+            job().finally(() => { _larmInFlight--; _drainLarmQueue(); });
+        }
+    }
+    function scheduleLarmFetch(taskFn) {
+        return new Promise((resolve, reject) => {
+            _larmQueue.push(() => taskFn().then(resolve, reject));
+            _drainLarmQueue();
+        });
+    }
 
     async function loadLarmklass(tagName, sel, chk, tChk, row) {
         function syncIcon(cls, on) {
@@ -697,37 +770,45 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             const img = row.querySelector('img.' + cls);
             if (img) img.style.display = on ? '' : 'none';
         }
-        if (larmCache[tagName] !== undefined) {
-            sel.value = larmCache[tagName];
-            if (sel.value !== larmCache[tagName]) { const o = document.createElement('option'); o.value = larmCache[tagName]; o.textContent = larmCache[tagName]; sel.insertBefore(o, sel.firstChild); sel.value = larmCache[tagName]; }
+        function applyFromCache() {
+            const v = larmCache[tagName] || '';
+            if (![...sel.options].some(o => o.value === v)) {
+                const o = document.createElement('option'); o.value = v; o.textContent = v;
+                sel.insertBefore(o, sel.firstChild);
+            }
+            sel.value = v;
             if (chk) { chk.checked = !!alarmCache[tagName]; syncIcon('alarmlink', chk.checked); }
             if (tChk) { tChk.checked = !!trendCache[tagName]; syncIcon('trendlink', tChk.checked); }
+        }
+        if (larmCache[tagName] !== undefined && cacheFresh(tagName)) {
+            applyFromCache();
             return;
         }
-        try {
-            const r = await fetch('/tag/ActionEdit?show=1&type=tag&tag=' + encodeTag(tagName));
-            if (!r.ok) return;
-            const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
-            const field = doc.querySelector('textarea[name="p"],input[name="p"],select[name="p"]');
-            if (field) {
-                const v = field.value || '';
-                larmCache[tagName] = v;
-                if (![...sel.options].some(o => o.value === v)) { const o = document.createElement('option'); o.value = v; o.textContent = v; sel.insertBefore(o, sel.firstChild); }
-                sel.value = v;
+        return scheduleLarmFetch(async () => {
+            try {
+                const r = await fetch('/tag/ActionEdit?show=1&type=tag&tag=' + encodeTag(tagName));
+                if (!r.ok) return;
+                const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+                const field = doc.querySelector('textarea[name="p"],input[name="p"],select[name="p"]');
+                larmCache[tagName] = field ? (field.value || '') : '';
+                const aChk = doc.querySelector('input[name="isalarm"][type="checkbox"]');
+                alarmCache[tagName] = aChk ? aChk.checked : false;
+                const tCk = doc.querySelector('input[name="istrend"][type="checkbox"]');
+                trendCache[tagName] = tCk ? tCk.checked : false;
+                cacheTs[tagName] = Date.now();
+                applyFromCache();
+            } catch (e) {
+                logAppend('warning', 'Kunde inte läsa larm/trend för ' + tagName + ': ' + e.message, 'inu');
+                console.warn(CFG.logPrefix, 'loadLarmklass failed for', tagName, e);
             }
-            const aChk = doc.querySelector('input[name="isalarm"][type="checkbox"]');
-            alarmCache[tagName] = aChk ? aChk.checked : false;
-            if (chk) { chk.checked = alarmCache[tagName]; syncIcon('alarmlink', chk.checked); }
-            const tCk = doc.querySelector('input[name="istrend"][type="checkbox"]');
-            trendCache[tagName] = tCk ? tCk.checked : false;
-            if (tChk) { tChk.checked = trendCache[tagName]; syncIcon('trendlink', tChk.checked); }
-        } catch (e) { console.warn('[INU]', 'loadLarmklass failed for', tagName, e); }
+        });
     }
 
     async function saveLarmklass(tagName, value) {
         try {
             await fetchFormAndSave(tagName, fd => fd.set('p', value));
             larmCache[tagName] = value;
+            cacheTs[tagName] = Date.now();
             toast(`Larmklass ${value || '—'} → ${tagName}`);
         } catch (e) { toastErr(`Larmklass fel: ${e.message}`); }
     }
@@ -742,6 +823,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         try {
             await fetchFormAndSave(tagName, fd => setCheckboxField(fd, 'isalarm', enabled));
             alarmCache[tagName] = enabled;
+            cacheTs[tagName] = Date.now();
             toast(`Larm ${enabled ? 'PÅ' : 'AV'} → ${tagName}`);
         } catch (e) { toastErr(`Larm fel: ${e.message}`); }
     }
@@ -750,6 +832,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         try {
             await fetchFormAndSave(tagName, fd => setCheckboxField(fd, 'istrend', enabled));
             trendCache[tagName] = enabled;
+            cacheTs[tagName] = Date.now();
             toast(`Trend ${enabled ? 'PÅ' : 'AV'} → ${tagName}`);
         } catch (e) { toastErr(`Trend fel: ${e.message}`); }
     }
@@ -807,8 +890,8 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         });
         return rows;
     }
-    function syncSelCheckboxes() {
-        document.querySelectorAll('#tagtable tbody tr.tag').forEach(r => {
+    function syncSelCheckboxes(rows) {
+        (rows || document.querySelectorAll('#tagtable tbody tr.tag')).forEach(r => {
             const name = r.cells[C.NAME]?.textContent?.trim();
             if (!name) return;
             const on = selNames.has(name);
@@ -863,8 +946,8 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         // Escape regex special chars, then convert * to .* wildcard
         return text.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
     }
-    function applyFilter() {
-        document.querySelectorAll('#tagtable tbody tr.tag').forEach(r => {
+    function applyFilter(rows) {
+        (rows || document.querySelectorAll('#tagtable tbody tr.tag')).forEach(r => {
             const dt = r.cells[C.DTYPE]?.textContent?.trim();
             const isDig = dt === 'DIGITAL';
             const isUnc = !isDig && unconf(r);
@@ -934,9 +1017,9 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         updSummary();
     }
 
-    function reapplyPendingDeletes() {
+    function reapplyPendingDeletes(rows) {
         if (!pendingDeletes.size) return;
-        document.querySelectorAll('#tagtable tbody tr.tag').forEach(row => {
+        (rows || document.querySelectorAll('#tagtable tbody tr.tag')).forEach(row => {
             const tag = rowTagName(row);
             if (tag && pendingDeletes.has(tag)) applyDelVisual(row, tag);
         });
@@ -1104,9 +1187,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 try {
                     await duplicateTag(sourceName, copies[0].name, copies[0].addr || undefined);
                     toastOk('Duplicerad → ' + copies[0].name);
-                    const sc = document.createElement('script');
-                    sc.textContent = 'try{oTable.fnDraw();}catch(e){}';
-                    document.head.appendChild(sc); sc.remove();
+                    runInPage('try{oTable.fnDraw();}catch(e){}');
                 } catch(e) {
                     toastErr('Duplicering misslyckades: ' + e.message);
                     console.error(CFG.logPrefix, 'Duplicate failed:', sourceName, e);
@@ -1117,9 +1198,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                     const { ok, fail } = await duplicateTagBatch(sourceName, copies);
                     if (fail) toastErr(`${ok} skapade, ${fail} misslyckades`);
                     else toastOk(`${ok} taggar skapade`);
-                    const sc = document.createElement('script');
-                    sc.textContent = 'try{oTable.fnDraw();}catch(e){}';
-                    document.head.appendChild(sc); sc.remove();
+                    runInPage('try{oTable.fnDraw();}catch(e){}');
                 } catch(e) {
                     toastErr('Batch-duplicering misslyckades: ' + e.message);
                     console.error(CFG.logPrefix, 'Batch duplicate failed:', e);
@@ -1130,219 +1209,6 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             if (e.key === 'Enter') okBtn.click();
             if (e.key === 'Escape') m.remove();
         });
-    }
-    // ============================================================
-    // KONFIG-RAPPORT
-    // ============================================================
-    async function collectReportData() {
-        const sid = (location.search.match(/sid=([^&#]+)/) || [])[1] || '';
-        const r = await fetch('/tag/GetTagList?sid=' + sid + '&draw=1&limit=9999&offset=0&sortcol=0&sortdir=asc&search=');
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        const json = await r.json();
-        const dec = h => { const d = document.createElement('div'); d.innerHTML = h; return d.textContent.trim(); };
-        return (json.data || []).map(row => {
-            const dtype = dec(row['3'] || '');
-            const emin  = dec(row['6'] || '0');
-            const emax  = dec(row['7'] || '0');
-            const isDigital = dtype === 'DIGITAL' || dtype === 'BOOL';
-            const allZero   = ['4','5','6','7'].every(k => parseFloat(dec(row[k]||'0')) === 0);
-            return {
-                name:     dec(row['0'] || ''),
-                io:       dec(row['1'] || ''),
-                dtype,
-                addr:     dec(row['2'] || ''),
-                unit:     dec(row['8'] || ''),
-                desc:     dec(row['10'] || ''),
-                engmin:   parseFloat(emin) || 0,
-                engmax:   parseFloat(emax) || 0,
-                isDigital,
-                isUnconf: !isDigital && allZero,
-                isConf:   !isDigital && !allZero,
-            };
-        });
-    }
-
-    async function openKonfigRapport() {
-        let tags;
-        try {
-            toastr.info('Hämtar taggar…', '', { timeOut: 0, extendedTimeOut: 0 });
-            tags = await collectReportData();
-            toastr.clear();
-        } catch(e) {
-            toastr.clear();
-            toastErr('Kunde inte hämta taggar: ' + e.message);
-            return;
-        }
-        if (!tags.length) { toastErr('Inga taggar hittade'); return; }
-
-        const total   = tags.length;
-        const conf    = tags.filter(t => t.isConf).length;
-        const unconf  = tags.filter(t => t.isUnconf).length;
-        const digital = tags.filter(t => t.isDigital).length;
-        const noDesc  = tags.filter(t => !t.desc).length;
-
-        const pct      = (n,d) => d ? Math.round(n/d*100) : 0;
-        const esc      = escHtml;
-        const countMap = arr => arr.reduce((m,v) => { m[v]=(m[v]||0)+1; return m; }, {});
-
-        // ── Duplicate addresses ───────────────────────────────────
-        const addrBuckets = {};
-        tags.forEach(t => {
-            if (!t.addr || t.addr==='0' || !t.io) return;
-            const k = t.io+'|'+t.addr;
-            (addrBuckets[k]||(addrBuckets[k]=[])).push(t.name);
-        });
-        const dupeTags = Object.values(addrBuckets).filter(a=>a.length>1).flat();
-
-        // ── Address gap analysis ──────────────────────────────────
-        const findGaps = addrs => {
-            const parsed = addrs.map(a => {
-                const m = a.match(/^([A-Za-z]*)(\d+)$/);
-                return m ? {pfx:m[1], num:parseInt(m[2]), width:m[2].length} : null;
-            }).filter(Boolean);
-            const byPfx = {};
-            parsed.forEach(p => (byPfx[p.pfx]||(byPfx[p.pfx]=[])).push(p));
-            const result = [];
-            for (const items of Object.values(byPfx)) {
-                const nums = [...new Set(items.map(i=>i.num))].sort((a,b)=>a-b);
-                if (nums.length < 3) continue;
-                const range = nums[nums.length-1] - nums[0];
-                if (range > 400 || range <= 0) continue;
-                if (nums.length / (range+1) < 0.35) continue;
-                const w = items[0].width, pfx = items[0].pfx;
-                const fmt = n => pfx + String(n).padStart(w, '0');
-                // Collect gap numbers then compress into ranges
-                const gapNums = [];
-                for (let i=nums[0]; i<=nums[nums.length-1]; i++) {
-                    if (!nums.includes(i)) gapNums.push(i);
-                }
-                let i = 0;
-                while (i < gapNums.length) {
-                    let j = i;
-                    while (j+1 < gapNums.length && gapNums[j+1] === gapNums[j]+1) j++;
-                    result.push(j > i ? `${fmt(gapNums[i])}–${fmt(gapNums[j])}` : fmt(gapNums[i]));
-                    i = j + 1;
-                }
-            }
-            return result.slice(0, 50);
-        };
-        const addrByDev = {};
-        tags.forEach(t => {
-            if (!t.addr || t.addr==='0' || !t.io) return;
-            (addrByDev[t.io]||(addrByDev[t.io]=[])).push(t.addr);
-        });
-        const addrGaps = Object.entries(addrByDev)
-            .map(([dev,addrs]) => ({dev, gaps:findGaps(addrs)}))
-            .filter(x=>x.gaps.length>0);
-
-        // ── Scaling & unit deviants ───────────────────────────────
-        // Group by sensorType + value suffix (GT_PV, GT_AD, GT_P separately)
-        // so PV process values don't mix with AD/P/I control signals
-        const stKey = name => {
-            const p = name.split('_');
-            if (p.length < 2) return null;
-            const m = p[p.length-2].match(/^([A-Z]{1,4})\d/i);
-            if (!m) return null;
-            return m[1].toUpperCase() + '_' + p[p.length-1];
-        };
-        const stMap = {};
-        tags.filter(t=>t.isConf).forEach(t => {
-            const k = stKey(t.name);
-            if (k) (stMap[k]||(stMap[k]=[])).push(t);
-        });
-        const deviants = [];
-        for (const [type, group] of Object.entries(stMap)) {
-            if (group.length < 3) continue;
-            const [[topUnit]]    = Object.entries(countMap(group.map(t=>t.unit||''))).sort((a,b)=>b[1]-a[1]);
-            const scalingKey     = t => `${Math.round(t.engmin*10)/10}|${Math.round(t.engmax*10)/10}`;
-            const [[topScaling]] = Object.entries(countMap(group.map(scalingKey))).sort((a,b)=>b[1]-a[1]);
-            const [topEmin, topEmax] = topScaling.split('|').map(Number);
-            const span = Math.abs(topEmax - topEmin) || 1;
-            const odd  = group.filter(t => {
-                const badUnit    = (t.unit||'') !== topUnit;
-                const badScaling = Math.abs(t.engmin-topEmin)/span > 0.15 || Math.abs(t.engmax-topEmax)/span > 0.15;
-                return badUnit || badScaling;
-            });
-            if (odd.length > 0 && odd.length < group.length/2) {
-                deviants.push({ type, total:group.length, consensus:`${topEmin}…${topEmax} ${topUnit}`, odd });
-            }
-        }
-        deviants.sort((a,b)=>b.odd.length-a.odd.length);
-
-        // ── Render helpers ────────────────────────────────────────
-        const togSection = (title, badge, bCls, body) => `<div class="kr-hyg-sec">
-  <div class="kr-hyg-hdr" onclick="var b=this.nextElementSibling,o=b.classList.toggle('open');this.querySelector('.kr-hyg-ico').style.transform=o?'rotate(90deg)':''">
-    <i class="fa fa-chevron-right kr-hyg-ico"></i>
-    <span class="kr-hyg-ttl">${title}</span>
-    <span class="kr-hyg-badge ${bCls}">${badge}</span>
-  </div>
-  <div class="kr-hyg-body">${body}</div>
-</div>`;
-        const hygSection = (title, list, level) => {
-            const empty = !list.length;
-            const body = empty
-                ? '<span style="color:#4caf50;font-size:11px;"><i class="fa fa-check"></i> Inga avvikelser</span>'
-                : list.map(n=>`<span class="kr-tag">${esc(n)}</span>`).join('');
-            return togSection(esc(title), empty?'✓':list.length, empty?'ok':level, body);
-        };
-
-        // ── Address gap sections ──────────────────────────────────
-        const gapHtml = addrGaps.length === 0
-            ? '<span style="color:#4caf50;font-size:11px;"><i class="fa fa-check"></i> Inga luckor hittade</span>'
-            : addrGaps.map(({dev,gaps}) => hygSection(`${dev} — ${gaps.length} adressluckor`, gaps, 'warn')).join('');
-
-        // ── Deviant sections ──────────────────────────────────────
-        const devHtml = deviants.length === 0
-            ? '<span style="color:#4caf50;font-size:11px;"><i class="fa fa-check"></i> Inga avvikelser hittade</span>'
-            : deviants.map(d => {
-                const items = d.odd.map(t =>
-                    `<div style="padding:2px 0;"><span class="kr-tag">${esc(t.name)}</span> <span style="color:#888;font-size:11px;">→ ${esc(`${t.engmin}…${t.engmax} ${t.unit||'?'}`)}</span> <span style="color:#aaa;font-size:10px;">(förväntat: ${esc(d.consensus)})</span></div>`
-                ).join('');
-                const title = `${esc(d.type)}-taggar <span style="color:#aaa;font-weight:400;font-size:11px;">(${d.total} st, konsensus: ${esc(d.consensus)})</span>`;
-                return togSection(title, `${d.odd.length} avvikare`, 'warn', items);
-            }).join('');
-
-        const ov = document.createElement('div');
-        ov.className = 'kr-ov';
-        ov.innerHTML = `
-<div class="kr-hdr">
-  <i class="fa fa-bar-chart" style="font-size:17px;color:#5b6abf;"></i>
-  <h2>Konfig-Rapport</h2>
-  <span class="kr-sub">${total} taggar inlästa</span>
-  <button class="kr-close" id="kr-close" title="Stäng (Esc)"><i class="fa fa-times"></i></button>
-</div>
-<div class="kr-body">
-
-  <div class="kr-stats">
-    <div class="kr-stat"><div class="kn info">${total}</div><div class="kl">Taggar totalt</div></div>
-    <div class="kr-stat"><div class="kn">${conf}</div><div class="kl">Konfigurerade</div><div class="ks">${pct(conf,total)}%</div></div>
-    <div class="kr-stat"><div class="kn warn">${unconf}</div><div class="kl">Okonfigurerade</div><div class="ks">${pct(unconf,total)}%</div></div>
-    <div class="kr-stat"><div class="kn gray">${digital}</div><div class="kl">Digitala</div><div class="ks">${pct(digital,total)}%</div></div>
-    <div class="kr-stat"><div class="kn warn">${noDesc}</div><div class="kl">Saknar beskrivning</div><div class="ks">${pct(noDesc,total)}%</div></div>
-  </div>
-
-  <div class="kr-hyg" style="margin-bottom:14px;">
-    <h4><i class="fa fa-map-marker"></i> Adressluckor <span style="font-weight:400;color:#aaa;font-size:10px;">— saknade nummer i sekventiella adressrader per IO-enhet</span></h4>
-    ${gapHtml}
-  </div>
-
-  <div class="kr-hyg" style="margin-bottom:14px;">
-    <h4><i class="fa fa-exclamation-triangle"></i> Skalnings- &amp; enhetsavvikelser <span style="font-weight:400;color:#aaa;font-size:10px;">— taggar vars enhet/skalning skiljer sig från konsensus för samma taggtyp + suffix</span></h4>
-    ${devHtml}
-  </div>
-
-  <div class="kr-hyg">
-    <h4><i class="fa fa-stethoscope"></i> Hygienrapport</h4>
-    ${hygSection('Saknar beskrivning', tags.filter(t=>!t.desc).map(t=>t.name), 'warn')}
-    ${hygSection('Duplicerade adresser', dupeTags, 'warn')}
-  </div>
-
-</div>`;
-
-        document.body.appendChild(ov);
-        ov.querySelector('#kr-close').addEventListener('click', () => ov.remove());
-        const escHandler = e => { if (e.key==='Escape') { ov.remove(); document.removeEventListener('keydown', escHandler); } };
-        document.addEventListener('keydown', escHandler);
     }
 
     function openColFilterDropdown(colIdx, anchor) {
@@ -1412,6 +1278,9 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         });
     }
     function addColumnFilters() {
+        // Filter buttons live in <thead> which DataTables doesn't redraw —
+        // once attached they stay forever. Skip the work on every redraw.
+        if (document.querySelector('#tagtable thead .inu-col-filter-btn')) return;
         const ths = document.querySelectorAll('#tagtable thead tr:first-child th');
         [{ idx: C.IO }, { idx: C.DTYPE }, { idx: C.UNIT }].forEach(({ idx }) => {
             const th = ths[idx];
@@ -1439,12 +1308,17 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
 
     function modalAdd(pre) {
         const p=pre||{rawmin:'0',rawmax:'10000',engmin:'0',engmax:'100',unit:'',format:'0.0'};
+        // Preset values come from GM_getValue (loadCustom). If a coworker's
+        // storage was synced/imported with malformed data — or if a preset
+        // edited via "Edit preset" path stored e.g. `" onfocus=alert(1) x="` —
+        // we'd otherwise inject HTML attributes. Escape every interpolation.
+        const e = escHtml;
         const m=modal(`
 <h3><i class="fa fa-plus"></i> Ny preset</h3>
 <label>Namn</label><input id="pn" placeholder="T.ex. Min sensor (0…500)">
-<div class="fr"><div><label>Rå-min</label><input id="p1" value="${p.rawmin}"></div><div><label>Rå-max</label><input id="p2" value="${p.rawmax}"></div></div>
-<div class="fr"><div><label>Vy-min</label><input id="p3" value="${p.engmin}"></div><div><label>Vy-max</label><input id="p4" value="${p.engmax}"></div></div>
-<div class="fr"><div><label>Enhet</label><input id="p5" value="${p.unit}"></div><div><label>Format</label><input id="p6" value="${p.format}"></div></div>
+<div class="fr"><div><label>Rå-min</label><input id="p1" value="${e(p.rawmin)}"></div><div><label>Rå-max</label><input id="p2" value="${e(p.rawmax)}"></div></div>
+<div class="fr"><div><label>Vy-min</label><input id="p3" value="${e(p.engmin)}"></div><div><label>Vy-max</label><input id="p4" value="${e(p.engmax)}"></div></div>
+<div class="fr"><div><label>Enhet</label><input id="p5" value="${e(p.unit)}"></div><div><label>Format</label><input id="p6" value="${e(p.format)}"></div></div>
 <div class="bt"><button class="bx" id="pc">Avbryt</button><button class="bok" id="ps">Spara</button></div>`);
         m.querySelector('#pc').addEventListener('click',()=>m.remove());
         m.querySelector('#ps').addEventListener('click',()=>{
@@ -1465,7 +1339,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     // lazy-fetched from TEMPLATE_BASE_URL and cached in GM storage.
     const TEMPLATE_BASE_URL = 'https://phogel1.github.io/static-assets/';
     const TEMPLATE_INDEX = {
-        version: '2026-04-15.6',
+        version: '2026-05-03.2',
         manufacturers: [
             {
                 id: 'ivprodukt', name: 'IVProdukt',
@@ -1477,6 +1351,12 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 id: 'nibe', name: 'NIBE',
                 models: [
                     { id: 'smo-s40', name: 'SMO S40 (orkestrator)', file: 'nibe/smo-s40.json', category: 'Värmepump' }
+                ]
+            },
+            {
+                id: 'regin', name: 'Regin',
+                models: [
+                    { id: 'regio-midi', name: 'Regio Midi (1.7) — alla rumsregulatorer', file: 'regin/regio-midi.json', category: 'Rumsregulator' }
                 ]
             },
             {
@@ -1496,7 +1376,10 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             const obj = JSON.parse(raw);
             if (obj._idx !== idxVersion) return null; // invalidate when index bumps
             return obj.data;
-        } catch (e) { return null; }
+        } catch (e) {
+            console.warn(CFG.logPrefix, 'template cache read failed for', file, e);
+            return null;
+        }
     }
     function _tplCachePut(file, idxVersion, data) {
         try { GM_setValue(_tplCacheKey(file), JSON.stringify({ _idx: idxVersion, data })); }
@@ -1539,7 +1422,14 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     // Pure resolver: given a template + user's config answers + rename prefix,
     // returns an ordered array of fully-resolved tag objects ready for insert.
     // `answers` shape: { <sectionId>: <optionId string for radio> | <optionId[] for multiselect> }
-    function resolveTemplate(tpl, answers, prefix) {
+    // `slaveIds` (optional): array of Modbus slave IDs for multi-slave templates
+    // (e.g. moxa-bridged regulators). When tpl.multiSlave is set and slaveIds
+    // is non-empty, the resolver emits one tag set per slave, with `{prefix}`
+    // expanded to `{prefix}{slave}` and `address` rewritten to `{slave}@{address}`.
+    // `ioDevice` (optional): when set, overrides the resolved `device` field on
+    // every tag — useful when tags share a Modbus master (e.g. Moxa) and the
+    // template's `{prefix}`-substituted device isn't a real WebPort IO-device.
+    function resolveTemplate(tpl, answers, prefix, slaveIds, ioDevice) {
         if (!tpl || !tpl.tags) return [];
         const chosen = new Set(Array.isArray(tpl.base) ? tpl.base : []);
         for (const sec of (tpl.config || [])) {
@@ -1553,67 +1443,161 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         }
         const out = [];
         const effPrefix = (prefix && prefix.trim()) || tpl.defaultDevicePrefix || 'DEV1';
-        for (const tid of chosen) {
-            const raw = tpl.tags[tid];
-            if (!raw) { console.warn(CFG.logPrefix, 'resolveTemplate: unknown tag id', tid); continue; }
-            const resolved = {};
-            for (const k of Object.keys(raw)) {
-                const v = raw[k];
-                resolved[k] = (typeof v === 'string') ? v.replace(/\{prefix\}/g, effPrefix) : v;
+        // Each entry can be either a number (range mode → token = slaveId) or
+        // a {nameId, slaveId} pair (table mode → token = nameId, address still
+        // uses the real slaveId). The range-mode array is normalised below.
+        if (tpl.multiSlave && (!Array.isArray(slaveIds) || !slaveIds.length)) return [];
+        const isMulti = !!tpl.multiSlave;
+        const slaves = isMulti
+            ? slaveIds.map(s => (typeof s === 'object' && s !== null) ? s : { nameId: String(s), slaveId: s })
+            : [null];
+        const hasHash = /#+/.test(effPrefix);
+        for (const slv of slaves) {
+            const sid = slv ? slv.slaveId : null;
+            const token = slv ? slv.nameId : null;
+            // sp = device prefix substituted into {prefix} tokens. With ## in
+            // the prefix the token is placed where the # run lives (zero-padded
+            // to the run length); without ##, the token is appended (legacy).
+            const sp = (slv == null)
+                ? effPrefix
+                : (hasHash ? effPrefix.replace(/#+/, m => String(token).padStart(m.length, '0')) : (effPrefix + token));
+            for (const tid of chosen) {
+                const raw = tpl.tags[tid];
+                if (!raw) { console.warn(CFG.logPrefix, 'resolveTemplate: unknown tag id', tid); continue; }
+                const resolved = {};
+                for (const k of Object.keys(raw)) {
+                    const v = raw[k];
+                    if (typeof v !== 'string') { resolved[k] = v; continue; }
+                    let s = v.replace(/\{prefix\}/g, sp);
+                    if (sid != null && k === 'address' && s) s = sid + '@' + s;
+                    resolved[k] = s;
+                }
+                if (ioDevice) resolved.device = ioDevice;
+                resolved._id = slv ? `${tid}__n${token}__s${sid}` : tid;
+                out.push(resolved);
             }
-            resolved._id = tid;
-            out.push(resolved);
         }
         return out;
     }
 
-    // ----- Tag creation via copy+edit seed-tag approach -----
-    // Since WebPort's native "new tag" endpoint is unknown, we reuse the existing
-    // copy path: clone a user-picked seed tag to the target name, then immediately
-    // POST over its fields via /tag/actionedit. Two requests per created tag.
-
-    async function createTagFromTemplate(tag, seedTagName) {
-        // Step 1: copy seed → new name
-        const copyParams = await fetchCopyBaseParams(seedTagName);
-        copyParams.set('name', tag.name);
-        if (tag.address != null) copyParams.set('address', tag.address);
-        const copyRes = await fetch('/tag/actioncopy', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: copyParams.toString()
-        });
-        if (!copyRes.ok) throw new Error('copy HTTP ' + copyRes.status);
-
-        // Step 2: overwrite fields on the new tag with template data
-        await fetchFormAndSave(tag.name, (fd) => {
-            const fields = ['device', 'address', 'datatype', 'rawmin', 'rawmax',
-                            'engmin', 'engmax', 'unit', 'format', 'description',
-                            'alarmoptions', 'trendoptions'];
-            for (const k of fields) {
-                if (tag[k] != null && tag[k] !== '') fd.set(k, String(tag[k]));
+    // Parse a slave-id range string like "1-5, 8, 10" → [1,2,3,4,5,8,10].
+    // Returns { ids, invalid } so the UI can flag bad tokens without rejecting
+    // the whole input. Modbus slave IDs are 1–247.
+    function _tplParseSlaveRange(s) {
+        const ids = new Set();
+        const invalid = [];
+        if (s == null || !String(s).trim()) return { ids: [], invalid: [] };
+        for (const tokRaw of String(s).split(',')) {
+            const tok = tokRaw.trim();
+            if (!tok) continue;
+            const m = tok.match(/^(\d+)\s*-\s*(\d+)$/);
+            if (m) {
+                const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+                if (a < 1 || b < 1 || a > 247 || b > 247 || a > b) { invalid.push(tok); continue; }
+                for (let i = a; i <= b; i++) ids.add(i);
+                continue;
             }
-        });
+            if (/^\d+$/.test(tok)) {
+                const n = parseInt(tok, 10);
+                if (n < 1 || n > 247) { invalid.push(tok); continue; }
+                ids.add(n);
+                continue;
+            }
+            invalid.push(tok);
+        }
+        return { ids: Array.from(ids).sort((a, b) => a - b), invalid };
     }
 
-    // Batch-create with sequential dispatch + progress callback.
-    // progressCb(done, total, failing[]) fires after each tag.
-    async function createTagBatch(tags, seedTagName, progressCb) {
+    // ----- Tag creation via WebPort's native new-tag endpoint -----
+    // /tag/ActionAdd?show=1&type=tag&sid=<sid> renders the same blank form
+    // WebPort's UI uses for "Ny tagg". Posting the serialized form to
+    // /tag/actionadd creates the tag in one round-trip — no seed-tag copy
+    // step, so the modal works on a freshly commissioned WebPort with zero
+    // existing tags.
+
+    let _newTagFormCache = null;
+    let _newTagFormPromise = null;
+
+    // Fetch the blank new-tag form once per page session and cache the
+    // serialized FormData. createTagNative() clones this for each tag and
+    // overrides the template fields before POSTing.
+    async function _fetchNewTagFormTemplate() {
+        if (_newTagFormCache) return _newTagFormCache;
+        if (_newTagFormPromise) return _newTagFormPromise;
+        const sid = new URLSearchParams(location.search).get('sid') || '';
+        const url = '/tag/ActionAdd?show=1&type=tag&sid=' + encodeURIComponent(sid);
+        _newTagFormPromise = (async () => {
+            const r = await fetch(url);
+            if (!r.ok) throw new Error('new-tag form HTTP ' + r.status);
+            const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+            const form = doc.querySelector('form#frmtag') || doc.querySelector('form');
+            if (!form) throw new Error('Formulär saknas i ActionAdd-svar');
+            // Capture as plain object so each createTagNative() call gets a
+            // fresh, isolated FormData (FormData itself is mutable).
+            const baseEntries = [];
+            for (const el of form.querySelectorAll('input,textarea,select')) {
+                if (!el.name || el.type === 'file') continue;
+                if (el.type === 'checkbox') { if (el.checked) baseEntries.push([el.name, el.value || 'on']); continue; }
+                if (el.type === 'radio') { if (el.checked) baseEntries.push([el.name, el.value]); continue; }
+                baseEntries.push([el.name, el.value]);
+            }
+            _newTagFormCache = baseEntries;
+            return baseEntries;
+        })();
+        try { return await _newTagFormPromise; }
+        finally { _newTagFormPromise = null; }
+    }
+
+    async function createTagNative(tag) {
+        const baseEntries = await _fetchNewTagFormTemplate();
+        const fd = new FormData();
+        for (const [k, v] of baseEntries) fd.append(k, v);
+        fd.set('name', tag.name);
+        if (tag.address != null) fd.set('address', String(tag.address));
+        // Map display-name device → UUID. Templates resolve to display names
+        // (or {prefix} expansions) but /tag/actionadd needs the UUID.
+        if (tag.device) fd.set('device', _tplDeviceNameToUuid(tag.device));
+        const fields = ['datatype', 'rawmin', 'rawmax', 'engmin', 'engmax',
+                        'unit', 'format', 'description'];
+        for (const k of fields) {
+            if (tag[k] != null && tag[k] !== '') fd.set(k, String(tag[k]));
+        }
+        const r = await fetch('/tag/actionadd', { method: 'POST', body: fd });
+        if (!r.ok) throw new Error('actionadd HTTP ' + r.status);
+    }
+
+    // Batch-create with concurrency-capped dispatch + progress callback +
+    // cooperative cancellation. progressCb(done, total, failing[], skipped)
+    // fires after each tag completes (in any order). The optional `abort`
+    // object can be set to {aborted:true} from outside to stop processing
+    // remaining items; in-flight requests still complete (we don't kill
+    // active fetches, just stop dispatching new ones).
+    async function createTagBatch(tags, progressCb, abort) {
         const failing = [];
-        for (let i = 0; i < tags.length; i++) {
-            const t = tags[i];
+        let done = 0, skipped = 0;
+        const results = await runWithConcurrency(tags, BULK_CONCURRENCY, async (t) => {
+            if (abort && abort.aborted) {
+                skipped++;
+                done++;
+                if (progressCb) progressCb(done, tags.length, failing, skipped);
+                return;
+            }
             try {
-                await createTagFromTemplate(t, seedTagName);
+                await createTagNative(t);
                 logAppend('success', `Skapade tagg: ${t.name}`, 'inu');
             } catch (e) {
                 console.warn(CFG.logPrefix, 'create failed', t.name, e);
                 logAppend('error', `Misslyckades: ${t.name} — ${e.message}`, 'inu');
                 failing.push({ name: t.name, error: e.message });
+                throw e; // mark as failed in results — already recorded above
+            } finally {
+                done++;
+                if (progressCb) progressCb(done, tags.length, failing, skipped);
             }
-            if (progressCb) progressCb(i + 1, tags.length, failing);
-            // Small delay to avoid hammering the server
-            await new Promise(r => setTimeout(r, 80));
-        }
-        return failing;
+        });
+        // results array is unused — failing[] is the source of truth.
+        void results;
+        return { failing, skipped };
     }
 
     // ----- UI -----
@@ -1643,6 +1627,84 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         return map;
     }
 
+    // Unique IO-device names already present in the tag table, with the count
+    // of tags currently using each. Sorted by count descending so the most
+    // populated IO-device is the first option in the dropdown — usually what
+    // the commissioner wants.
+    function _tplExistingIODevices() {
+        const counts = new Map();
+        document.querySelectorAll('#tagtable tbody tr.tag').forEach(r => {
+            const dev = r.cells[C.IO]?.textContent?.trim();
+            if (!dev) return;
+            counts.set(dev, (counts.get(dev) || 0) + 1);
+        });
+        return Array.from(counts.entries())
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .map(([name, count]) => ({ name, count }));
+    }
+
+    // Fetched IO-device master list (name + UUID), cached for the page session.
+    // Populated lazily by _tplFetchIODevices() the first time the template modal
+    // opens. Persists across modal opens; invalidated only on full page reload.
+    let _ioDeviceMasterList = null;
+    let _ioDeviceMasterPromise = null;
+
+    // Fetch the full IO-device list from WebPort's new-tag form. The form's
+    // <select name="device"> contains every configured IO-source as an
+    // <option value="UUID">DisplayName</option>. We need the UUID to POST a
+    // tag via /tag/actionadd, but the table only ever shows display names —
+    // hence the name→UUID map cached here for createTagNative() to look up.
+    async function _tplFetchIODevices() {
+        if (_ioDeviceMasterList) return _ioDeviceMasterList;
+        if (_ioDeviceMasterPromise) return _ioDeviceMasterPromise;
+        const sid = new URLSearchParams(location.search).get('sid') || '';
+        const url = '/tag/ActionAdd?show=1&type=tag&sid=' + encodeURIComponent(sid);
+        _ioDeviceMasterPromise = (async () => {
+            const r = await fetch(url);
+            if (!r.ok) throw new Error('IO-list HTTP ' + r.status);
+            const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+            const sel = doc.querySelector('form#frmtag select[name="device"], select[name="device"]');
+            if (!sel) throw new Error('select[name=device] saknas i ActionAdd-svar');
+            const list = Array.from(sel.options)
+                .filter(o => o.value) // skip the empty "Ingen" entry
+                .map(o => ({ uuid: o.value, name: (o.textContent || '').trim() }));
+            _ioDeviceMasterList = list;
+            return list;
+        })();
+        try { return await _ioDeviceMasterPromise; }
+        finally { _ioDeviceMasterPromise = null; }
+    }
+
+    // Display name → UUID lookup; falls back to the input if no match (so
+    // legacy display-name-as-value paths keep working until the master list
+    // is fetched).
+    function _tplDeviceNameToUuid(displayName) {
+        if (!displayName || !_ioDeviceMasterList) return displayName;
+        const hit = _ioDeviceMasterList.find(d => d.name === displayName);
+        return hit ? hit.uuid : displayName;
+    }
+
+    // Combine existing-table counts with the master list so the commissioner
+    // sees a complete dropdown (every IO-device, plus a "(N)" usage count for
+    // the ones already in use). Returns [{name, count}] preserving the
+    // existing _tplExistingIODevices shape so the modal code is unchanged.
+    function _tplMergeIODevices(masterList, existingCounts) {
+        const countByName = new Map(existingCounts.map(d => [d.name, d.count]));
+        return masterList
+            .map(d => ({ name: d.name, count: countByName.get(d.name) || 0 }))
+            .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    }
+
+    // The seed tag's IO-device — the natural default for the dropdown.
+    function _tplSeedIODevice(seedTagName) {
+        if (!seedTagName) return '';
+        for (const r of document.querySelectorAll('#tagtable tbody tr.tag')) {
+            const name = r.cells[C.NAME]?.textContent?.trim();
+            if (name === seedTagName) return r.cells[C.IO]?.textContent?.trim() || '';
+        }
+        return '';
+    }
+
     // Types treated as "pick exactly one" (renders as <select>):
     //   radio, dropdown
     // Types treated as "pick zero or more" (renders as checkbox list):
@@ -1667,17 +1729,28 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
 
     // Resolve the tags that a single configurator option will pull in, with
     // {prefix} substituted. Returns an array of {name, address, type, description}.
-    function _tplOptionTags(tpl, opt, prefix) {
+    // For multi-slave templates: shows one example slave (the first in slaveIds,
+    // or 1 as a placeholder) so the popup stays compact — the resolved-list
+    // section below the modal shows the full per-slave expansion.
+    function _tplOptionTags(tpl, opt, prefix, slaveIds) {
         if (!opt || !opt.tags || !opt.tags.length) return [];
         const effPrefix = (prefix && String(prefix).trim()) || tpl.defaultDevicePrefix || 'DEV1';
+        const isMulti = !!tpl.multiSlave;
+        const exampleSid = isMulti ? ((Array.isArray(slaveIds) && slaveIds[0]) || 1) : null;
+        const hasHash = /#+/.test(effPrefix);
+        const sp = (exampleSid == null)
+            ? effPrefix
+            : (hasHash ? effPrefix.replace(/#+/, m => String(exampleSid).padStart(m.length, '0')) : (effPrefix + exampleSid));
         const out = [];
         for (const tid of opt.tags) {
             const raw = tpl.tags && tpl.tags[tid];
             if (!raw) continue;
-            const resolvedName = String(raw.name || tid).replace(/\{prefix\}/g, effPrefix);
+            const resolvedName = String(raw.name || tid).replace(/\{prefix\}/g, sp);
+            const addr = raw.address || '';
+            const resolvedAddr = (exampleSid != null && addr) ? (exampleSid + '@' + addr) : addr;
             out.push({
                 name: resolvedName,
-                address: raw.address || '',
+                address: resolvedAddr,
                 type: _tplTagTypeLabel({ name: resolvedName, unit: raw.unit, datatype: raw.datatype }),
                 description: raw.description || ''
             });
@@ -1740,7 +1813,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         return btn;
     }
 
-    function _tplRenderConfig(tpl, state, container, onChange, getPrefix) {
+    function _tplRenderConfig(tpl, state, container, onChange, getPrefix, getSlaves) {
         container.innerHTML = '';
         if (!tpl.config || !tpl.config.length) {
             const msg = document.createElement('div');
@@ -1780,6 +1853,18 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 }
                 sel.addEventListener('change', () => {
                     state[sec.id] = sel.value;
+                    // If the chosen option declares presets for other sections
+                    // (e.g. a "model variant" dropdown that should auto-flip
+                    // CO₂/fan/output defaults), apply them and re-render the
+                    // entire config UI so the new defaults are visible.
+                    const chosen = (sec.options || []).find(o => o.id === sel.value);
+                    if (chosen && chosen.presets) {
+                        for (const k of Object.keys(chosen.presets)) {
+                            const v = chosen.presets[k];
+                            state[k] = Array.isArray(v) ? v.slice() : v;
+                        }
+                        _tplRenderConfig(tpl, state, container, onChange, getPrefix, getSlaves);
+                    }
                     onChange();
                 });
                 row.appendChild(sel);
@@ -1789,7 +1874,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 const infoBtn = _tplCreateInfoBtn(() => {
                     const currentId = state[sec.id];
                     const currentOpt = (sec.options || []).find(o => o.id === currentId);
-                    return _tplOptionTags(tpl, currentOpt, getPrefix && getPrefix());
+                    return _tplOptionTags(tpl, currentOpt, getPrefix && getPrefix(), getSlaves && getSlaves());
                 });
                 row.appendChild(infoBtn);
                 cell.appendChild(row);
@@ -1841,7 +1926,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 const txt = document.createElement('span');
                 txt.textContent = opt.label || opt.id;
                 lab.appendChild(txt);
-                const infoBtn = _tplCreateInfoBtn(() => _tplOptionTags(tpl, opt, getPrefix && getPrefix()));
+                const infoBtn = _tplCreateInfoBtn(() => _tplOptionTags(tpl, opt, getPrefix && getPrefix(), getSlaves && getSlaves()));
                 lab.appendChild(infoBtn);
                 opts.appendChild(lab);
             }
@@ -1925,8 +2010,33 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     <select id="tpl-model"></select>
   </div>
   <div>
-    <label>Enhets-prefix</label>
-    <input id="tpl-prefix" placeholder="AHU1 / HP1 / …">
+    <label>Enhets-prefix <span style="font-size:10px;color:#999;font-weight:400;">## = numreringsplats</span></label>
+    <input id="tpl-prefix" placeholder="AHU## / HP1 / …">
+  </div>
+  <div>
+    <label>IO-enhet</label>
+    <select id="tpl-iodev"></select>
+  </div>
+</div>
+<div class="tpl-slaves-row" id="tpl-slaves-row">
+  <div class="tpl-slaves-hdr">
+    <label>Slav-ID:n</label>
+    <div class="tpl-slaves-modes">
+      <button type="button" id="tpl-slaves-mode-range" class="on" title="Område: 1-5, 8, 10">Område</button>
+      <button type="button" id="tpl-slaves-mode-table" title="Tabell: namn-ID per rad">Tabell</button>
+    </div>
+  </div>
+  <div class="tpl-slaves-range on" id="tpl-slaves-range">
+    <input id="tpl-slaves" placeholder="1-5, 8, 10">
+  </div>
+  <table class="tpl-slaves-tbl" id="tpl-slaves-tbl">
+    <thead><tr><th>Namn-ID</th><th>Slav-ID</th><th class="tpl-slaves-tbl-act"></th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <button type="button" class="tpl-slaves-tbl-add" id="tpl-slaves-tbl-add" style="display:none;">+ Lägg till rad</button>
+  <div class="tpl-slaves-summary" id="tpl-slaves-summary"></div>
+  <div class="tpl-slaves-help">
+    En tagguppsättning per slav. Adresser blir <code>ID@adress</code>, namn får <code>{prefix}</code> sammansatt med ID:t (eller med <code>##</code> i prefixet ersatt av ID:t). Ex område: <code>1-5, 8, 10</code> → 1,2,3,4,5,8,10. Tabell-läge: ange <code>Namn-ID</code> (kan vara t.ex. <code>001</code>) och <code>Slav-ID</code> (1-247) per rad.
   </div>
 </div>
 <div class="tpl-status" id="tpl-status"></div>
@@ -1951,13 +2061,20 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
 
         const q = s => mb.querySelector(s);
         const mfrSel = q('#tpl-mfr'), modelSel = q('#tpl-model');
-        const prefixInp = q('#tpl-prefix'), statusEl = q('#tpl-status'), cfgEl = q('#tpl-cfg');
+        const prefixInp = q('#tpl-prefix'), ioDevSel = q('#tpl-iodev');
+        const statusEl = q('#tpl-status'), cfgEl = q('#tpl-cfg');
+        const slavesRow = q('#tpl-slaves-row'), slavesInp = q('#tpl-slaves'), slavesSummary = q('#tpl-slaves-summary');
+        const slavesRangeBox = q('#tpl-slaves-range'), slavesTbl = q('#tpl-slaves-tbl'), slavesTblBody = slavesTbl.querySelector('tbody');
+        const slavesTblAdd = q('#tpl-slaves-tbl-add');
+        const slavesModeRangeBtn = q('#tpl-slaves-mode-range'), slavesModeTableBtn = q('#tpl-slaves-mode-table');
+        let slavesMode = 'range'; // 'range' | 'table'
+        const slavesTblRows = []; // [{nameId, slaveId}] mirror of the table for resolution
         const resWrap = q('#tpl-res-wrap'), resHdr = q('#tpl-res-hdr'), resBody = q('#tpl-res-body'), resCount = q('#tpl-res-count');
         const addBtn = q('#tpl-add'), cancelBtn = q('#tpl-cancel');
         const progEl = q('#tpl-prog'), progText = q('#tpl-prog-text'), progFill = q('#tpl-prog-fill');
 
-        // Existing tags in the current WebPort table. The first one is auto-used as
-        // the seed tag for the copy+edit creation path. Empty table → blocking error.
+        // Seed tag is no longer required for creation (we POST to /tag/actionadd
+        // directly). It's still used as a UX hint for the IO-device default.
         const existing = _tplExistingTags();
         const seedTag = existing[0] || null;
 
@@ -1968,6 +2085,57 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             o.value = mfr.id; o.textContent = mfr.name;
             mfrSel.appendChild(o);
         }
+
+        // Populate IO-device dropdown. Fetches the full master list from
+        // WebPort's new-tag form (so the dropdown is usable on a fresh install
+        // with no existing tags), then merges in usage counts from the current
+        // table. Defaults to the seed tag's device when one exists, otherwise
+        // the most-used device, otherwise the first one in the master list.
+        const seedIoDev = _tplSeedIODevice(seedTag);
+        ioDevSel.innerHTML = '<option value="">(hämtar IO-enheter…)</option>';
+        ioDevSel.disabled = true;
+        (async () => {
+            const existingCounts = _tplExistingIODevices();
+            try {
+                const master = await _tplFetchIODevices();
+                const merged = _tplMergeIODevices(master, existingCounts);
+                ioDevSel.innerHTML = '';
+                if (!merged.length) {
+                    const o = document.createElement('option');
+                    o.value = ''; o.textContent = '(inga IO-enheter konfigurerade)';
+                    ioDevSel.appendChild(o);
+                    return;
+                }
+                for (const d of merged) {
+                    const o = document.createElement('option');
+                    o.value = d.name;
+                    o.textContent = d.count > 0 ? `${d.name} (${d.count})` : d.name;
+                    ioDevSel.appendChild(o);
+                }
+                ioDevSel.disabled = false;
+                ioDevSel.value = seedIoDev || merged[0].name;
+                updatePreview();
+            } catch (e) {
+                console.warn(CFG.logPrefix, 'IO-device fetch failed', e);
+                // Fallback to existing-table scan only.
+                ioDevSel.innerHTML = '';
+                if (!existingCounts.length) {
+                    const o = document.createElement('option');
+                    o.value = ''; o.textContent = '(kunde inte hämta IO-enheter)';
+                    ioDevSel.appendChild(o);
+                    return;
+                }
+                for (const d of existingCounts) {
+                    const o = document.createElement('option');
+                    o.value = d.name;
+                    o.textContent = `${d.name} (${d.count})`;
+                    ioDevSel.appendChild(o);
+                }
+                ioDevSel.disabled = false;
+                ioDevSel.value = seedIoDev || existingCounts[0].name;
+                updatePreview();
+            }
+        })();
 
         let currentTpl = null;
         let currentAnswers = {};
@@ -1993,28 +2161,165 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             statusEl.style.display = 'block';
         }
 
+        // Build (and rebuild) the editable slave table from slavesTblRows[].
+        // Only called for structural changes — add/remove rows. Per-keystroke
+        // validation reuses the existing inputs via _applySlavesTableErrors so
+        // typing doesn't steal focus from the cell being edited.
+        function renderSlavesTable() {
+            slavesTblBody.innerHTML = '';
+            slavesTblRows.forEach((row, i) => {
+                const tr = document.createElement('tr');
+                tr.dataset.i = String(i);
+                const tdN = document.createElement('td');
+                const inN = document.createElement('input');
+                inN.type = 'text'; inN.value = row.nameId; inN.placeholder = '001';
+                inN.dataset.col = 'name';
+                inN.addEventListener('input', () => { slavesTblRows[i].nameId = inN.value; updatePreview(); });
+                tdN.appendChild(inN);
+                const tdS = document.createElement('td');
+                const inS = document.createElement('input');
+                inS.type = 'text'; inS.value = row.slaveId == null ? '' : String(row.slaveId); inS.placeholder = '1-247';
+                inS.dataset.col = 'slave';
+                inS.addEventListener('input', () => {
+                    const v = inS.value.trim();
+                    slavesTblRows[i].slaveId = v === '' ? null : (/^\d+$/.test(v) ? parseInt(v, 10) : v);
+                    updatePreview();
+                });
+                tdS.appendChild(inS);
+                const tdA = document.createElement('td');
+                tdA.className = 'tpl-slaves-tbl-act';
+                const btn = document.createElement('button');
+                btn.type = 'button'; btn.textContent = '×'; btn.title = 'Ta bort rad';
+                btn.addEventListener('click', () => { slavesTblRows.splice(i, 1); renderSlavesTable(); updatePreview(); });
+                tdA.appendChild(btn);
+                tr.appendChild(tdN); tr.appendChild(tdS); tr.appendChild(tdA);
+                slavesTblBody.appendChild(tr);
+            });
+        }
+
+        // Toggle .tpl-err on existing inputs without rebuilding the table.
+        function _applySlavesTableErrors(errors) {
+            const trs = slavesTblBody.querySelectorAll('tr');
+            trs.forEach((tr, i) => {
+                const inN = tr.querySelector('input[data-col="name"]');
+                const inS = tr.querySelector('input[data-col="slave"]');
+                if (inN) inN.classList.toggle('tpl-err', !!errors.nameIdRows.has(i));
+                if (inS) inS.classList.toggle('tpl-err', !!errors.slaveIdRows.has(i));
+            });
+        }
+
+        function addSlaveTableRow() {
+            // Pre-fill name-id by inferring from the previous row's pattern
+            // (last row '003' → '004'; last row '231' → '232'). Slave-ID is
+            // intentionally left blank — physical IDs rarely follow a sequence.
+            const last = slavesTblRows[slavesTblRows.length - 1];
+            let nameId = '001';
+            if (last && /^\d+$/.test(last.nameId)) {
+                const n = parseInt(last.nameId, 10) + 1;
+                nameId = String(n).padStart(last.nameId.length, '0');
+            }
+            slavesTblRows.push({ nameId, slaveId: null });
+            renderSlavesTable();
+            updatePreview();
+        }
+
+        // Validate the table rows. Returns {entries: [{nameId, slaveId}], errors}
+        // where entries are the *valid* rows ready for resolveTemplate, and
+        // errors is a structured set used by renderSlavesTable to highlight
+        // bad cells. Empty rows are silently skipped.
+        function validateSlavesTable() {
+            const entries = [];
+            const nameIdRows = new Set(), slaveIdRows = new Set();
+            const seenNameId = new Map(), seenSlaveId = new Map();
+            const issues = [];
+            slavesTblRows.forEach((row, i) => {
+                const nm = (row.nameId || '').trim();
+                const sid = row.slaveId;
+                const isNumSid = typeof sid === 'number' && Number.isFinite(sid);
+                const isEmptyRow = !nm && (sid == null || sid === '');
+                if (isEmptyRow) return;
+                if (!nm) { nameIdRows.add(i); issues.push(`rad ${i + 1}: namn-ID saknas`); return; }
+                if (!isNumSid || sid < 1 || sid > 247) { slaveIdRows.add(i); issues.push(`rad ${i + 1}: slav-ID ogiltigt`); return; }
+                if (seenNameId.has(nm)) { nameIdRows.add(i); nameIdRows.add(seenNameId.get(nm)); issues.push(`namn-ID "${nm}" dubbel`); return; }
+                if (seenSlaveId.has(sid)) { slaveIdRows.add(i); slaveIdRows.add(seenSlaveId.get(sid)); issues.push(`slav-ID ${sid} dubbel`); return; }
+                seenNameId.set(nm, i); seenSlaveId.set(sid, i);
+                entries.push({ nameId: nm, slaveId: sid });
+            });
+            return { entries, errors: { nameIdRows, slaveIdRows }, issues };
+        }
+
+        // Parse the slave input (range or table mode) and refresh the small
+        // summary line. Returns { entries: [{nameId, slaveId}] | null } where
+        // a null entries array means "no valid input yet" (block creation).
+        function refreshSlaves() {
+            if (!currentTpl || !currentTpl.multiSlave) {
+                slavesRow.classList.remove('on', 'tpl-err');
+                slavesSummary.textContent = '';
+                return { entries: [] };
+            }
+            slavesRow.classList.add('on');
+            if (slavesMode === 'range') {
+                const parsed = _tplParseSlaveRange(slavesInp.value);
+                slavesRow.classList.toggle('tpl-err', parsed.invalid.length > 0);
+                if (!parsed.ids.length && !parsed.invalid.length) {
+                    slavesSummary.textContent = 'Ange minst ett slav-ID.';
+                } else if (parsed.ids.length) {
+                    slavesSummary.textContent = `${parsed.ids.length} slav${parsed.ids.length === 1 ? '' : 'ar'}: ${parsed.ids.join(', ')}`
+                        + (parsed.invalid.length ? `   (ignorerar: ${parsed.invalid.join(', ')})` : '');
+                } else {
+                    slavesSummary.textContent = `Ogiltiga: ${parsed.invalid.join(', ')}`;
+                }
+                return { entries: parsed.ids.map(n => ({ nameId: String(n), slaveId: n })) };
+            }
+            // Table mode
+            const v = validateSlavesTable();
+            _applySlavesTableErrors(v.errors);
+            const hasErr = v.errors.nameIdRows.size > 0 || v.errors.slaveIdRows.size > 0;
+            slavesRow.classList.toggle('tpl-err', hasErr);
+            if (!slavesTblRows.length) {
+                slavesSummary.textContent = 'Lägg till minst en rad.';
+            } else if (hasErr) {
+                slavesSummary.textContent = 'Fel: ' + v.issues.slice(0, 3).join('; ') + (v.issues.length > 3 ? '…' : '');
+            } else if (!v.entries.length) {
+                slavesSummary.textContent = 'Inga giltiga rader.';
+            } else {
+                slavesSummary.textContent = `${v.entries.length} enhet${v.entries.length === 1 ? '' : 'er'}: ` +
+                    v.entries.map(e => `${e.nameId}→${e.slaveId}`).slice(0, 6).join(', ') +
+                    (v.entries.length > 6 ? `   (+${v.entries.length - 6} till)` : '');
+            }
+            return { entries: hasErr ? null : v.entries };
+        }
+
+        function setSlavesMode(mode) {
+            slavesMode = mode;
+            slavesModeRangeBtn.classList.toggle('on', mode === 'range');
+            slavesModeTableBtn.classList.toggle('on', mode === 'table');
+            slavesRangeBox.classList.toggle('on', mode === 'range');
+            slavesTbl.classList.toggle('on', mode === 'table');
+            slavesTblAdd.style.display = mode === 'table' ? 'inline-block' : 'none';
+            if (mode === 'table' && !slavesTblRows.length) addSlaveTableRow();
+            updatePreview();
+        }
+
         function updatePreview() {
             if (!currentTpl) { resWrap.style.display = 'none'; addBtn.disabled = true; return; }
-            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value);
+            const slv = refreshSlaves();
+            const slaves = slv.entries || [];
+            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value, slaves, ioDevSel.value || null);
             const effective = resolved.filter(t => !uncheckedIds.has(t._id));
             resCount.textContent = effective.length + ' taggar';
             resWrap.style.display = 'block';
             _tplRenderResolvedList(resolved, uncheckedIds, resBody, updatePreview);
             addBtn.textContent = effective.length ? `Lägg till ${effective.length} taggar` : 'Lägg till';
-            addBtn.disabled = effective.length === 0 || !seedTag;
-        }
-
-        // If there are no existing tags in the table, surface a blocking warning
-        // up front. The seed-tag mechanism needs at least one existing tag to copy
-        // from, so creation is impossible until the commissioner adds one.
-        if (!seedTag) {
-            setStatus('Tabellen är tom — skapa minst en tagg manuellt först. Mall-funktionen kopierar fält från en befintlig tagg, så listan får inte vara tom.', true);
+            // Block creation in table mode if there are validation errors
+            // (slv.entries === null), otherwise let the resolved-count gate it.
+            addBtn.disabled = effective.length === 0 || slv.entries === null;
         }
 
         async function loadModel() {
             const opt = modelSel.options[modelSel.selectedIndex];
             if (!opt || !opt.dataset.file) return;
-            if (seedTag) setStatus('Laddar mall...', false);
+            setStatus('Laddar mall...', false);
             cfgEl.innerHTML = '<div style="font-size:12px;color:#888;padding:12px;">Hämtar...</div>';
             try {
                 const tpl = await fetchTemplate(opt.dataset.file);
@@ -2022,10 +2327,16 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 currentAnswers = _tplInitialAnswers(tpl);
                 uncheckedIds.clear();
                 if (tpl.defaultDevicePrefix && !prefixInp.value) prefixInp.value = tpl.defaultDevicePrefix;
-                _tplRenderConfig(tpl, currentAnswers, cfgEl, updatePreview, () => prefixInp.value);
-                // Don't wipe the empty-table warning when the load succeeds — it stays
-                // up until the commissioner closes the modal and creates a seed tag.
-                if (seedTag) setStatus('', false);
+                if (tpl.multiSlave && !slavesInp.value) slavesInp.value = tpl.defaultSlaves || '1';
+                _tplRenderConfig(tpl, currentAnswers, cfgEl, updatePreview, () => prefixInp.value,
+                    () => {
+                        if (!currentTpl || !currentTpl.multiSlave) return [];
+                        if (slavesMode === 'table') {
+                            return validateSlavesTable().entries.map(e => e.slaveId);
+                        }
+                        return _tplParseSlaveRange(slavesInp.value).ids;
+                    });
+                setStatus('', false);
                 updatePreview();
             } catch (e) {
                 currentTpl = null;
@@ -2038,70 +2349,117 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         mfrSel.addEventListener('change', () => { populateModelDropdown(); loadModel(); });
         modelSel.addEventListener('change', loadModel);
         prefixInp.addEventListener('input', updatePreview);
+        slavesInp.addEventListener('input', updatePreview);
+        ioDevSel.addEventListener('change', updatePreview);
+        slavesModeRangeBtn.addEventListener('click', () => setSlavesMode('range'));
+        slavesModeTableBtn.addEventListener('click', () => setSlavesMode('table'));
+        slavesTblAdd.addEventListener('click', addSlaveTableRow);
         resHdr.addEventListener('click', () => {
             resHdr.classList.toggle('open');
             resBody.classList.toggle('open');
         });
         q('.tpl-close').addEventListener('click', () => m.remove());
-        cancelBtn.addEventListener('click', () => m.remove());
+
+        // Cancel button doubles as "abort in-flight bulk creation". When a
+        // creation is running, _bulkAbort is set and clicking cancel flips
+        // its `aborted` flag. Workers see the flag on their next pickup and
+        // skip remaining items (in-flight requests still finish — we don't
+        // kill active fetches). When idle, cancel just closes the modal.
+        let _bulkAbort = null;
+        cancelBtn.addEventListener('click', () => {
+            if (_bulkAbort) {
+                _bulkAbort.aborted = true;
+                cancelBtn.disabled = true;
+                cancelBtn.textContent = 'Avbryter…';
+                return;
+            }
+            m.remove();
+        });
 
         addBtn.addEventListener('click', async () => {
-            if (!currentTpl || !seedTag) return;
-            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value);
+            if (!currentTpl) return;
+            const slv = refreshSlaves();
+            if (slv.entries === null) return; // validation errors in table mode
+            const slaves = currentTpl.multiSlave ? slv.entries : [];
+            const resolved = resolveTemplate(currentTpl, currentAnswers, prefixInp.value, slaves, ioDevSel.value || null);
             const toCreate = resolved.filter(t => !uncheckedIds.has(t._id));
             if (!toCreate.length) return;
 
-            // Collision detection — by (device, address), not by name. Modbus
-            // uniqueness is per register address; a name collision would be caught
-            // by WebPort anyway, but address collisions silently break existing
-            // tags so they're the real problem to flag up-front.
+            // Collision detection — both by tag name AND by (device, address).
+            // Either kind of collision is a reason to skip: name collisions
+            // because WebPort's behaviour on /tag/actionadd with a duplicate
+            // name is unverified (could overwrite, reject, or 500); address
+            // collisions because two tags with the same (device, address) on
+            // the same Modbus bus silently fight each other in WebPort's
+            // poller and corrupt readings. We collapse both checks into one
+            // confirm dialog so the user sees the full damage list once.
+            const existingNames = new Set(_tplExistingTags());
             const addrMap = _tplExistingAddressesByDevice();
             const collisions = [];
             for (const t of toCreate) {
-                const key = `${t.device || ''}|${t.address}`;
-                if (addrMap.has(key)) collisions.push({ tag: t, existingName: addrMap.get(key) });
+                const reasons = [];
+                if (existingNames.has(t.name)) reasons.push('namn finns redan');
+                const addrKey = `${t.device || ''}|${t.address}`;
+                if (addrMap.has(addrKey)) reasons.push(`adress ${t.address} → ${addrMap.get(addrKey)}`);
+                if (reasons.length) collisions.push({ tag: t, reasons });
             }
             if (collisions.length) {
-                const sample = collisions.slice(0, 5)
-                    .map(c => `${c.tag.address} → redan ${c.existingName}`)
+                const sample = collisions.slice(0, 6)
+                    .map(c => `${c.tag.name}  (${c.reasons.join('; ')})`)
                     .join('\n  ');
-                const more = collisions.length > 5 ? `\n  … (+${collisions.length - 5} till)` : '';
+                const more = collisions.length > 6 ? `\n  … (+${collisions.length - 6} till)` : '';
                 const ok = confirm(
-                    `${collisions.length} Modbus-adress(er) används redan av befintliga taggar:\n\n  ${sample}${more}\n\nFortsätt och hoppa över dem?`
+                    `${collisions.length} tagg(ar) krockar med befintliga (namn eller Modbus-adress):\n\n  ${sample}${more}\n\nFortsätt och hoppa över dem? (Befintliga taggar lämnas orörda.)`
                 );
                 if (!ok) return;
-                const skipAddrs = new Set(collisions.map(c => `${c.tag.device || ''}|${c.tag.address}`));
+                const skipNames = new Set(collisions.map(c => c.tag.name));
                 for (let i = toCreate.length - 1; i >= 0; i--) {
-                    const key = `${toCreate[i].device || ''}|${toCreate[i].address}`;
-                    if (skipAddrs.has(key)) toCreate.splice(i, 1);
+                    if (skipNames.has(toCreate[i].name)) toCreate.splice(i, 1);
                 }
                 if (!toCreate.length) return;
             }
 
             addBtn.disabled = true;
-            cancelBtn.disabled = true;
+            // cancelBtn stays ENABLED — clicking it during a long bulk-create
+            // sets _bulkAbort.aborted so the worker stops dispatching new
+            // tags. Without this the user has no escape hatch on a 7000+ tag
+            // run and has to sit through it or close the tab.
+            _bulkAbort = { aborted: false };
             progEl.classList.add('on');
             progText.textContent = `Skapar 0 / ${toCreate.length}...`;
             progFill.style.width = '0%';
 
-            const failing = await createTagBatch(toCreate, seedTag, (done, total, fails) => {
-                progText.textContent = `Skapar ${done} / ${total}...` + (fails.length ? ` (${fails.length} fel)` : '');
+            const { failing, skipped } = await createTagBatch(toCreate, (done, total, fails, sk) => {
+                const skipNote = sk > 0 ? ` (${sk} hoppade över)` : '';
+                const failNote = fails.length ? ` (${fails.length} fel)` : '';
+                progText.textContent = `Skapar ${done} / ${total}...${failNote}${skipNote}`;
                 progFill.style.width = (done / total * 100).toFixed(1) + '%';
-            });
+            }, _bulkAbort);
+
+            const wasAborted = _bulkAbort.aborted;
+            _bulkAbort = null;
+            cancelBtn.disabled = false;
+            cancelBtn.textContent = 'Avbryt';
+
+            const created = toCreate.length - failing.length - skipped;
+            if (wasAborted) {
+                toastOk(`Avbruten — ${created} taggar skapade, ${skipped} hoppade över` + (failing.length ? `, ${failing.length} fel` : ''));
+                m.remove();
+                runInPage('location.reload()');
+                return;
+            }
 
             if (failing.length === toCreate.length) {
-                setStatus('Alla taggar misslyckades. Kontrollera konsolen och seed-taggen.', true);
-                addBtn.disabled = false; cancelBtn.disabled = false;
+                setStatus('Alla taggar misslyckades. Kontrollera konsolen.', true);
+                addBtn.disabled = false;
                 progEl.classList.remove('on');
                 return;
             }
 
-            toastOk(`${toCreate.length - failing.length} taggar skapade` + (failing.length ? `, ${failing.length} fel (se aktivitetsloggen)` : ''));
+            toastOk(`${created} taggar skapade` + (failing.length ? `, ${failing.length} fel (se aktivitetsloggen)` : ''));
             m.remove();
             // Refresh the page to show new tags (same mechanism as the bulk flow)
-            const sc = document.createElement('script');
-            sc.textContent = 'location.reload()';
-            document.head.appendChild(sc);
+            runInPage('location.reload()');
         });
 
         // Initial load
@@ -2168,8 +2526,21 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         tbEl.appendChild(Object.assign(document.createElement('span'),{className:'td'}));
 
         // Batch field editor
-        const DROPDOWN_FIELDS = ['device','datatype'];
+        const DROPDOWN_FIELDS = ['device','datatype','p'];
         const TOGGLE_FIELDS = ['isalarm_on','isalarm_off','istrend_on','istrend_off'];
+        // Hardcoded enums for fields whose options WebPort renders client-side
+        // (so getSelectOpts() doesn't see them on the edit form). Currently
+        // only Larmklass falls into this bucket — the inline tag-table cells
+        // also render these same five values from a script template.
+        const STATIC_OPTIONS = {
+            p: [
+                { value: 'OKLASSAD', text: 'OKLASSAD' },
+                { value: 'A', text: 'A' },
+                { value: 'B', text: 'B' },
+                { value: 'C', text: 'C' },
+                { value: 'D', text: 'D' },
+            ],
+        };
         const bfSel=document.createElement('select');bfSel.className='fil';
         [{v:'',l:'Redigera fält...'},{v:'isalarm_on',l:'Larm PÅ'},{v:'isalarm_off',l:'Larm AV'},{v:'istrend_on',l:'Trend PÅ'},{v:'istrend_off',l:'Trend AV'},
          {v:'device',l:'IO-Enhet'},{v:'datatype',l:'Datatyp'},
@@ -2191,7 +2562,27 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 bfValWrap.style.display='none';
             } else if(DROPDOWN_FIELDS.includes(field)){
                 bfValWrap.style.display='';
+                // Static enums (e.g. Larmklass `p`) render synchronously without
+                // an HTTP fetch — WebPort doesn't expose those options in the
+                // edit form so getSelectOpts() returns empty for them.
+                if (STATIC_OPTIONS[field]) {
+                    const sel2=document.createElement('select');sel2.className='fil';sel2.id='bf-val';
+                    for(const o of STATIC_OPTIONS[field]){
+                        const opt=document.createElement('option');opt.value=o.value;opt.textContent=o.text;sel2.appendChild(opt);
+                    }
+                    bfValWrap.appendChild(sel2);
+                    return;
+                }
+                // Show a loading select immediately so the user sees feedback
+                // — getSelectOpts() does an HTTP fetch on first call (~150-500ms).
+                const loading=document.createElement('select');
+                loading.className='fil'; loading.disabled=true;
+                const lo=document.createElement('option');
+                lo.textContent='Hämtar val...'; loading.appendChild(lo);
+                bfValWrap.appendChild(loading);
                 const opts=await getSelectOpts();
+                if (bfSel.value !== field) return; // user changed selection while we awaited
+                bfValWrap.innerHTML='';
                 const sel2=document.createElement('select');sel2.className='fil';sel2.id='bf-val';
                 for(const o of (opts[field]||[])){
                     const opt=document.createElement('option');opt.value=o.value;opt.textContent=o.text;sel2.appendChild(opt);
@@ -2209,17 +2600,20 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
             const field=bfSel.value;
             const rows=getSelectedRows();
             if(!field||!rows.length) return;
-            bfApply.disabled=true; bfApply.textContent='Sparar...';
-            let ok=0,fail=0;
+            bfApply.disabled=true;
+            const total=rows.length; let done=0;
+            const setLabel = () => { bfApply.textContent=`Sparar ${done}/${total}...`; };
+            setLabel();
 
+            let worker;
             // Handle toggle fields (alarm/trend on/off)
             if(TOGGLE_FIELDS.includes(field)){
                 const isAlarm=field.startsWith('isalarm');
                 const enable=field.endsWith('_on');
                 const formField=isAlarm?'isalarm':'istrend';
-                for(const row of rows){
+                worker = async (row) => {
                     const tag=row.cells[C.NAME]?.textContent?.trim();
-                    if(!tag) continue;
+                    if(!tag) return;
                     row.classList.add('inu-saving');
                     try {
                         await fetchFormAndSave(tag, fd => setCheckboxField(fd, formField, enable));
@@ -2232,6 +2626,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                         if(grp) grp.classList.toggle('on', enable);
                         if(isAlarm){ row.querySelector('.larm-wrap')?.classList.toggle('off', !enable); }
                         if(isAlarm) alarmCache[tag]=enable; else trendCache[tag]=enable;
+                        cacheTs[tag]=Date.now();
                         // Sync bell/trend icon in Typ column
                         const typCell=row.cells[C.DESC+1];
                         if(typCell){
@@ -2245,10 +2640,8 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                             }
                             if(img) img.style.display=enable?'':'none';
                         }
-                        ok++;
-                    } catch(e){ console.warn(CFG.logPrefix,'Batch toggle failed',tag,e); fail++; }
-                    row.classList.remove('inu-saving');
-                }
+                    } finally { row.classList.remove('inu-saving'); done++; setLabel(); }
+                };
             } else {
                 const valEl=bfValWrap.querySelector('#bf-val');
                 if(!valEl){ bfApply.disabled=false; bfApply.textContent='Sätt'; return; }
@@ -2256,20 +2649,45 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 const val=isDropdown?valEl.value:valEl.value.trim();
                 const displayVal=isDropdown?(valEl.options[valEl.selectedIndex]?.text||val):val;
                 const colMap={device:C.IO,datatype:C.DTYPE,rawmin:C.RMIN,rawmax:C.RMAX,engmin:C.EMIN,engmax:C.EMAX,unit:C.UNIT,format:C.FMT,description:C.DESC};
-                for(const row of rows){
+                worker = async (row) => {
                     const tag=row.cells[C.NAME]?.textContent?.trim();
-                    if(!tag) continue;
+                    if(!tag) return;
                     row.classList.add('inu-saving');
                     try {
                         await fetchFormAndSave(tag, fd=>fd.set(field,val));
                         if(colMap[field]&&row.cells[colMap[field]]) row.cells[colMap[field]].textContent=displayVal;
-                        colorRow(row); ok++;
-                    } catch(e){ console.warn(CFG.logPrefix,'Batch edit failed',tag,e); fail++; }
-                    row.classList.remove('inu-saving');
-                }
+                        // Larmklass has its own inline select rendered via the
+                        // injected larm column (not in colMap) — refresh both
+                        // the cache and the visible select so the user sees
+                        // the new class without a row redraw.
+                        if (field === 'p') {
+                            larmCache[tag] = val;
+                            cacheTs[tag] = Date.now();
+                            const lSel = row.querySelector('.larm-sel');
+                            if (lSel) {
+                                if (![...lSel.options].some(o => o.value === val)) {
+                                    const o = document.createElement('option'); o.value = val; o.textContent = val;
+                                    lSel.insertBefore(o, lSel.firstChild);
+                                }
+                                lSel.value = val;
+                                lSel.className = 'larm-sel' + (val==='A'?' lk-a':val==='B'?' lk-b':val==='C'?' lk-c':val==='D'?' lk-d':'');
+                            }
+                        }
+                        colorRow(row);
+                    } finally { row.classList.remove('inu-saving'); done++; setLabel(); }
+                };
             }
+
+            const results = await runWithConcurrency(rows, BULK_CONCURRENCY, worker);
+            const ok = results.filter(r => r.ok).length;
+            const fail = results.length - ok;
+            results.forEach((r, i) => { if (!r.ok) {
+                const tag = rows[i].cells[C.NAME]?.textContent?.trim() || '?';
+                console.warn(CFG.logPrefix,'Batch field failed',tag,r.error);
+                logAppend('error','Bulk-fältredigering misslyckades för '+tag+': '+r.error.message,'inu');
+            }});
             updSummary(); updDirty();
-            if (field === 'address' || field === 'device') detectDuplicates();
+            if (field === 'address' || field === 'device') { _dupNeedsRecalc = true; detectDuplicates(); }
             toastOk(`${ok} uppdaterade`+(fail?`, ${fail} misslyckades`:''));
             bfApply.disabled=false; bfApply.textContent='Sätt';
         });
@@ -2287,12 +2705,26 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         const bPg=document.createElement('select');bPg.className='fil';
         [{v:'50',l:'50 per sida'},{v:'100',l:'100 per sida'},{v:'250',l:'250 per sida'},{v:'-1',l:'Visa alla'}]
             .forEach(f=>{const o=document.createElement('option');o.value=f.v;o.textContent=f.l;bPg.appendChild(o);});
+        // Persisted page length, defaults to 100 (WebPort's own default is 50,
+        // but commissioning sessions are easier with more rows visible).
+        // The value is interpolated into a runInPage() <script> body, so we
+        // whitelist against the known enum to close a GM-storage code-injection
+        // sink (audit F5).
+        const _PG_LEN_ALLOWED = new Set(['50', '100', '250', '-1']);
+        const _pgRaw = String(GM_getValue('inu_page_length', '100'));
+        const _pgPref = _PG_LEN_ALLOWED.has(_pgRaw) ? _pgRaw : '100';
+        bPg.value = _pgPref;
+        const _applyPgLen = (len) => {
+            if (!_PG_LEN_ALLOWED.has(String(len))) { console.warn(CFG.logPrefix, 'rejected non-enum page length', len); return; }
+            runInPage(`(function(){try{var t=$('#tagtable').dataTable();t.fnSettings()._iDisplayLength=${len};t.fnDraw();}catch(e){console.error('[INU WP+]',e);}})();`);
+        };
+        // Apply the saved preference on first toolbar build (after a short
+        // delay so the DataTable is fully initialized in the page scope).
+        setTimeout(() => _applyPgLen(_pgPref), 200);
         bPg.addEventListener('change',()=>{
             const len=bPg.value;
-            const sc=document.createElement('script');
-            sc.textContent=`(function(){try{var t=$('#tagtable').dataTable();t.fnSettings()._iDisplayLength=${len};t.fnDraw();}catch(e){console.error('[INU WP+]',e);}})();`;
-            document.head.appendChild(sc);
-            sc.remove();
+            GM_setValue('inu_page_length', len);
+            _applyPgLen(len);
         });
         tbEl.appendChild(bPg);
 
@@ -2301,10 +2733,6 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
         const mb=document.createElement('button');mb.innerHTML='<i class="fa fa-television"></i> Övervaka';
         mb.addEventListener('click',()=>monitorPrompt());
         tbEl.appendChild(mb);
-
-        const krBtn=document.createElement('button');krBtn.className='sec';krBtn.innerHTML='<i class="fa fa-bar-chart"></i> Konfig-Rapport';
-        krBtn.addEventListener('click',()=>openKonfigRapport());
-        tbEl.appendChild(krBtn);
 
         const srBtn=document.createElement('button');srBtn.className='sec';srBtn.innerHTML='<i class="fa fa-exchange"></i> Sök/Ersätt';
         srBtn.addEventListener('click',()=>searchReplaceModal());
@@ -2412,7 +2840,7 @@ Verktyg för snabb skalningskonfigurering av taggar i INU WebPort.
         const p=allPresets()[name]; if(!p) return;
         const m=modal(`
 <h3>Bekräfta bulk-applicering</h3>
-<p style="font-size:12px;color:#333;margin:8px 0;">Applicera <b>${name}</b> på <b>${rows.length}</b> valda tagg(ar)?</p>
+<p style="font-size:12px;color:#333;margin:8px 0;">Applicera <b>${escHtml(name)}</b> på <b>${rows.length}</b> valda tagg(ar)?</p>
 <div class="bt">
 <button class="bx" id="pc">Avbryt</button>
 <button class="bok" id="ps">Applicera</button>
@@ -2420,30 +2848,38 @@ Verktyg för snabb skalningskonfigurering av taggar i INU WebPort.
         m.querySelector('#pc').addEventListener('click',()=>m.remove());
         m.querySelector('#ps').addEventListener('click',async()=>{
             m.remove();
-            bApply.disabled=true; bApply.textContent=`Sparar 0/${rows.length}...`;
-            let ok=0,fail=0;
-            for(let i=0;i<rows.length;i++) {
-                const row=rows[i], tag=row.cells[C.NAME].textContent.trim();
-                bApply.textContent=`Sparar ${i+1}/${rows.length}...`;
-                try {
-                    const old=scl(row);
-                    saveUndo(tag,old);
-                    if(!sessionChanges[tag]) sessionChanges[tag]={old,presetName:name};
-                    await apiSave(tag,p);
-                    updCells(row,p);colorRow(row);updUndo(row);
-                    ok++;
-                } catch(e){ console.warn(CFG.logPrefix, 'Bulk save failed for', tag, e); fail++; }
-            }
-            bApply.textContent='Applicera på valda';bApply.disabled=false;
+            bApply.disabled=true;
+            let done=0;
+            const total=rows.length;
+            const updateLabel = () => { bApply.textContent=`Sparar ${done}/${total}...`; };
+            updateLabel();
+            const results = await runWithConcurrency(rows, BULK_CONCURRENCY, async (row) => {
+                const tag=row.cells[C.NAME].textContent.trim();
+                const old=scl(row);
+                saveUndo(tag,old);
+                if(!sessionChanges[tag]) sessionChanges[tag]={old,presetName:name};
+                row.classList.add('inu-saving');
+                try { await apiSave(tag,p); updCells(row,p); colorRow(row); updUndo(row); }
+                finally { row.classList.remove('inu-saving'); done++; updateLabel(); }
+                return tag;
+            });
+            const ok = results.filter(r => r.ok).length;
+            const fail = results.length - ok;
+            results.forEach((r, i) => { if (!r.ok) {
+                const tag = rows[i].cells[C.NAME].textContent.trim();
+                console.warn(CFG.logPrefix, 'Bulk save failed for', tag, r.error);
+                logAppend('error','Bulk-applicering misslyckades för '+tag+': '+r.error.message,'inu');
+            }});
+            bApply.textContent='Applicera på valda'; bApply.disabled=false;
             updSummary(); updDirty();
             toastOk(`${ok} sparade` + (fail?`, ${fail} misslyckades`:''));
         });
     }
 
-    function updSummary() {
+    function updSummary(rows) {
         if(!sumEl) return;
         // Current page counts
-        const rows=document.querySelectorAll('#tagtable tbody tr.tag');
+        rows = rows || document.querySelectorAll('#tagtable tbody tr.tag');
         let tot=0,conf=0,unc=0,dig=0;
         rows.forEach(r=>{
             tot++;
@@ -2453,18 +2889,14 @@ Verktyg för snabb skalningskonfigurering av taggar i INU WebPort.
             else conf++;
         });
 
-        // Total counts via DataTables server info
+        // Total counts via DataTables server info — read straight from page-scope
+        // jQuery (Tampermonkey allows reading via unsafeWindow).
         let totalHtml='';
         try {
-            const sc=document.createElement('script');
-            sc.textContent=`document.getElementById('_inu_dt_info').textContent=JSON.stringify($('#tagtable').dataTable().fnSettings()._iRecordsTotal||0);`;
-            const infoEl=document.createElement('span');infoEl.id='_inu_dt_info';infoEl.style.display='none';
-            document.body.appendChild(infoEl);
-            document.head.appendChild(sc);sc.remove();
-            const totalRows=JSON.parse(infoEl.textContent||'0');
-            infoEl.remove();
-            if(totalRows>0 && totalRows!==tot) {
-                totalHtml=`<span class="inf">| Totalt ${totalRows} taggar</span>`;
+            const $$ = unsafeWindow.jQuery || unsafeWindow.$;
+            const totalRows = $$ ? ($$('#tagtable').dataTable().fnSettings()._iRecordsTotal || 0) : 0;
+            if (totalRows > 0 && totalRows !== tot) {
+                totalHtml = `<span class="inf">| Totalt ${totalRows} taggar</span>`;
             }
         } catch(e){ console.debug(CFG.logPrefix, 'DataTables info unavailable'); }
 
@@ -2521,7 +2953,7 @@ ${totalHtml}${pillsHtml ? `<span class="inf">| Aktiva filter:</span>${pillsHtml}
     // ============================================================
     // BUILD COLUMNS
     // ============================================================
-    function addColumns() {
+    function addColumns(rows) {
         const table=document.getElementById('tagtable');if(!table)return;
 
         // Headers (prepend — reverse order so checkbox ends up first)
@@ -2538,8 +2970,10 @@ ${totalHtml}${pillsHtml ? `<span class="inf">| Aktiva filter:</span>${pillsHtml}
             tr.insertBefore(th0, tr.firstChild);
         });
 
-        // Rows
-        table.querySelectorAll('tbody tr.tag').forEach(row=>{
+        // Rows — caller may pass a pre-enumerated NodeList (observer cluster)
+        // to avoid 6 redundant querySelectorAll() scans per redraw.
+        const rowList = rows || table.querySelectorAll('tbody tr.tag');
+        rowList.forEach(row=>{
             if(row.querySelector('.p-larm'))return;
 
             // Checkbox
@@ -2637,15 +3071,23 @@ ${totalHtml}${pillsHtml ? `<span class="inf">| Aktiva filter:</span>${pillsHtml}
             colorRow(row);
             updUndo(row);
         });
-        detectDuplicates();
+        // Only re-scan duplicates when an IO-Enhet/Adress cell changed since
+        // the last detect — full table scan is wasted work otherwise.
+        if (_dupNeedsRecalc) {
+            _dupNeedsRecalc = false;
+            detectDuplicates(rowList);
+        }
     }
 
     // ============================================================
     // DUPLICATE ADDRESS DETECTION
     // ============================================================
-    function detectDuplicates() {
+    // Set true on first run + whenever an IO-Enhet/Adress edit happens.
+    // Read+cleared by addColumns() during the observer-cluster debounce.
+    let _dupNeedsRecalc = true;
+    function detectDuplicates(rows) {
         const map = {}; // "device|address" → [rows]
-        const rows = document.querySelectorAll('#tagtable tbody tr.tag');
+        rows = rows || document.querySelectorAll('#tagtable tbody tr.tag');
         rows.forEach(r => {
             const dev = r.cells[C.IO]?.textContent?.trim() || '';
             const addr = r.cells[C.ADDR]?.textContent?.trim() || '';
@@ -2797,9 +3239,7 @@ ${totalHtml}${pillsHtml ? `<span class="inf">| Aktiva filter:</span>${pillsHtml}
 </table></div>` : '';
 
             if(!editCount && !pendingDeletes.size) {
-                const sc=document.createElement('script');
-                sc.textContent=origOnclick||'SaveChanges();';
-                document.head.appendChild(sc);sc.remove();
+                runInPage(origOnclick||'SaveChanges();');
                 return;
             }
 
@@ -2822,21 +3262,20 @@ ${delSection}
             m.querySelector('#pc').addEventListener('click',()=>m.remove());
             m.querySelector('#ps').addEventListener('click',async ()=>{
                 m.remove();
-                // Delete pending tags
+                // Delete pending tags — run in parallel up to BULK_CONCURRENCY.
                 if(pendingDeletes.size) {
                     const toDelete=[...pendingDeletes];
+                    const results = await runWithConcurrency(toDelete, BULK_CONCURRENCY, async (tag) => {
+                        await deleteTag(tag);
+                        pendingDeletes.delete(tag);
+                        return tag;
+                    });
                     let ok=0,fail=0;
-                    for(const tag of toDelete){
-                        try{
-                            await deleteTag(tag);
-                            pendingDeletes.delete(tag);
-                            ok++;
-                            console.log(CFG.logPrefix,'Deleted:',tag);
-                        } catch(e){
-                            fail++;
-                            console.error(CFG.logPrefix,'Delete failed:',tag,e);
-                        }
-                    }
+                    results.forEach((res, i) => {
+                        if (res.ok) { ok++; console.log(CFG.logPrefix,'Deleted:',toDelete[i]); }
+                        else { fail++; console.error(CFG.logPrefix,'Delete failed:',toDelete[i],res.error);
+                               logAppend('error','Borttagning misslyckades: '+toDelete[i]+' — '+res.error.message,'inu'); }
+                    });
                     if(fail) toastErr(fail+' borttagning(ar) misslyckades');
                     else toastOk(ok+' tagg(ar) borttagna');
                 }
@@ -2848,15 +3287,11 @@ ${delSection}
                         const t=rowTagName(r);
                         if(t) initialSnapshot[t]=fullSnap(r);
                     });
-                    const sc=document.createElement('script');
-                    sc.textContent=origOnclick||'SaveChanges();';
-                    document.head.appendChild(sc);sc.remove();
+                    runInPage(origOnclick||'SaveChanges();');
                     toast('Sparar...'); updDirty();
                 } else {
                     // Deletions only: refresh the table
-                    const sc=document.createElement('script');
-                    sc.textContent='try{oTable.fnDraw();}catch(e){}';
-                    document.head.appendChild(sc);sc.remove();
+                    runInPage('try{oTable.fnDraw();}catch(e){}');
                     updDirty();
                 }
             });
@@ -2870,7 +3305,11 @@ ${delSection}
         if (Object.keys(sessionChanges).length > 0 || pendingDeletes.size > 0) { e.preventDefault(); e.returnValue = ''; }
     });
 
+    // Tag-page keyboard shortcuts. Gated on _inuTagPageActive so we don't hijack
+    // Ctrl+S / Ctrl+A on every non-WebPort site the user happens to be on
+    // (the @match pattern is intentionally broad — see audit F6).
     document.addEventListener('keydown',e=>{
+        if(!_inuTagPageActive) return;
         // Don't trigger when typing in inputs
         if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT') return;
         // Ctrl+S — trigger save
@@ -2909,34 +3348,64 @@ ${delSection}
         [C.DESC]:  { field:'description', type:'text' },
     };
 
-    // Cache for dropdown options (fetched once from a tag form)
+    // Cache for dropdown options (fetched once from a tag form).
+    // Single in-flight Promise so concurrent callers share the request.
     let selectOptsCache = null;
-    async function getSelectOpts() {
-        if (selectOptsCache) return selectOptsCache;
-        // Fetch any tag form to extract dropdown options
+    let selectOptsInFlight = null;
+    function getSelectOpts() {
+        if (selectOptsCache) return Promise.resolve(selectOptsCache);
+        if (selectOptsInFlight) return selectOptsInFlight;
         const firstRow = document.querySelector('#tagtable tbody tr.tag');
-        if (!firstRow) return {};
+        if (!firstRow) return Promise.resolve({});
         const tag = firstRow.cells[C.NAME]?.textContent?.trim();
-        if (!tag) return {};
-        const r = await fetch('/tag/ActionEdit?show=1&type=tag&tag=' + encodeTag(tag));
-        const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
-        selectOptsCache = {};
-        for (const sel of doc.querySelectorAll('select')) {
-            if (!sel.name) continue;
-            selectOptsCache[sel.name] = [...sel.options].map(o => ({ value: o.value, text: o.textContent.trim() }));
-        }
-        return selectOptsCache;
+        if (!tag) return Promise.resolve({});
+        selectOptsInFlight = (async () => {
+            try {
+                const r = await fetch('/tag/ActionEdit?show=1&type=tag&tag=' + encodeTag(tag));
+                const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+                const out = {};
+                for (const sel of doc.querySelectorAll('select')) {
+                    if (!sel.name) continue;
+                    out[sel.name] = [...sel.options].map(o => ({ value: o.value, text: o.textContent.trim() }));
+                }
+                selectOptsCache = out;
+                return out;
+            } finally { selectOptsInFlight = null; }
+        })();
+        return selectOptsInFlight;
     }
 
+    // Track in-flight cell edits per (row, field) so rapid blur→re-edit cycles
+    // don't interleave saves on the same cell.
+    const _cellEditInFlight = new WeakMap(); // row → Set<field>
+
     async function startCellEdit(cell, row, cellDef) {
-        if (cell.querySelector('input,select')) return;
+        if (cell.querySelector('input,select,.inu-cell-loading')) return;
+        const inFlight = _cellEditInFlight.get(row);
+        if (inFlight && inFlight.has(cellDef.field)) return; // re-entry guard
         const tag = row.cells[C.NAME]?.textContent?.trim();
         if (!tag) return;
         const cur = cell.textContent.trim();
 
         let el;
         if (cellDef.type === 'select') {
+            // For dropdowns we may need to wait for getSelectOpts() — show a
+            // disabled placeholder so the user sees feedback immediately.
+            const blockerEarly = e => { e.stopPropagation(); e.stopImmediatePropagation(); };
+            cell.addEventListener('click', blockerEarly, true);
+            cell.addEventListener('mousedown', blockerEarly, true);
+            cell.textContent = '';
+            const placeholder = document.createElement('span');
+            placeholder.className = 'inu-cell-loading';
+            placeholder.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#666;';
+            placeholder.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Hämtar val...';
+            cell.appendChild(placeholder);
             const opts = await getSelectOpts();
+            placeholder.remove();
+            cell.removeEventListener('click', blockerEarly, true);
+            cell.removeEventListener('mousedown', blockerEarly, true);
+            // The cell may have been navigated away from while we awaited
+            if (!cell.isConnected || cell.querySelector('input,select')) return;
             const fieldOpts = opts[cellDef.field] || [];
             el = document.createElement('select');
             el.style.cssText = 'width:100%;font-size:11px;padding:1px 3px;border:1px solid #5b6abf;border-radius:2px;';
@@ -2969,13 +3438,21 @@ ${delSection}
                 const oldSnap = scl(row); // capture BEFORE mutation
                 cell.textContent = displayVal;
                 row.classList.add('inu-saving');
+                let lock = _cellEditInFlight.get(row);
+                if (!lock) { lock = new Set(); _cellEditInFlight.set(row, lock); }
+                lock.add(cellDef.field);
                 try {
                     await fetchFormAndSave(tag, fd => fd.set(cellDef.field, nv));
                     colorRow(row); updSummary();
                     if (!sessionChanges[tag]) sessionChanges[tag] = { old: oldSnap, presetName: '(redigerad)' };
                     updDirty();
-                    if (cellDef.field === 'address' || cellDef.field === 'device') detectDuplicates();
-                } catch (err) { cell.textContent = cur; toastErr(err.message); }
+                    if (cellDef.field === 'address' || cellDef.field === 'device') { _dupNeedsRecalc = true; detectDuplicates(); }
+                } catch (err) {
+                    cell.textContent = cur;
+                    toastErr(err.message);
+                    logAppend('error','Cellredigering misslyckades för '+tag+'/'+cellDef.field+': '+err.message,'inu');
+                }
+                lock.delete(cellDef.field);
                 row.classList.remove('inu-saving');
             } else {
                 cell.textContent = displayVal;
@@ -3048,8 +3525,7 @@ ${delSection}
             }
         });
 
-        const sc = document.createElement('script');
-        sc.textContent = `(function(){
+        runInPage(`(function(){
             if(!$.contextMenu) return;
             var OFF=${CFG.colOffset};
             var editableCols={};
@@ -3090,8 +3566,7 @@ ${delSection}
                     };
                 }
             });
-        })();`;
-        document.head.appendChild(sc); sc.remove();
+        })();`);
     }
 
     // ============================================================
@@ -3109,9 +3584,7 @@ ${delSection}
             if (!raw.includes('*')) return; // no wildcard — let DataTables handle normally
             e.stopImmediatePropagation(); // prevent DataTables' plain-text handler from overriding
             const pattern = wildcardToPattern(raw);
-            const sc = document.createElement('script');
-            sc.textContent = `(function(){try{$('#tagtable').dataTable().fnFilter(${JSON.stringify(pattern)},null,true,false);}catch(e){console.error('[INU WP+]',e);}})();`;
-            document.head.appendChild(sc); sc.remove();
+            runInPage(`(function(){try{$('#tagtable').dataTable().fnFilter(${JSON.stringify(pattern)},null,true,false);}catch(e){console.error('[INU WP+]',e);}})();`);
             setTimeout(()=>{addColumns();updSummary();applyFilter();syncSelCheckboxes();},100);
         }, true); // capture = runs before DataTables' bubble-phase handler
     }
@@ -3120,8 +3593,7 @@ ${delSection}
     // CELL INDEX PATCH — fix WebPort's click handlers after prepending columns
     // ============================================================
     function patchClickIndices() {
-        const sc=document.createElement('script');
-        sc.textContent=`(function(){
+        runInPage(`(function(){
             var OFF=${CFG.colOffset},table=document.getElementById('tagtable');
             if(!table)return;
             table.addEventListener('click',function(e){
@@ -3147,16 +3619,14 @@ ${delSection}
                     return _oi.apply(this,arguments);
                 };
             }
-        })();`;
-        document.head.appendChild(sc);sc.remove();
+        })();`);
     }
 
     // ============================================================
     // PATCH VALUE UPDATE — fix nth-child(13) → nth-child(16) for prepended columns
     // ============================================================
     function patchValueUpdate() {
-        const sc=document.createElement('script');
-        sc.textContent=`(function(){
+        runInPage(`(function(){
             var OFF=${CFG.colOffset},NTH=13+OFF;
             if(typeof UpdateAll==='function'){
                 UpdateAll=function(enable){
@@ -3189,8 +3659,7 @@ ${delSection}
                     if(typeof HasUnsavedChanges==='function') HasUnsavedChanges();
                 };
             }
-        })();`;
-        document.head.appendChild(sc);sc.remove();
+        })();`);
     }
 
     // ============================================================
@@ -3297,22 +3766,24 @@ ${delSection}
         applyBtn.addEventListener('click', async () => {
             if (!previewData.length) return;
             const total = previewData.length;
-            applyBtn.disabled = true; applyBtn.innerHTML = `<i class="fa fa-spinner fa-spin"></i> 0/${total}...`;
-            let ok = 0, fail = 0;
-            for (let i = 0; i < previewData.length; i++) {
-                const p = previewData[i];
-                applyBtn.innerHTML = `<i class="fa fa-spinner fa-spin"></i> ${i + 1}/${total}...`;
-                try {
-                    await fetchFormAndSave(p.tagName, fd => fd.set(p.formField, p.newVal));
-                    ok++;
-                } catch (e) { console.warn(CFG.logPrefix, 'S&R failed', p.tagName, e); fail++; }
-            }
+            applyBtn.disabled = true;
+            let done = 0;
+            const updateLabel = () => { applyBtn.innerHTML = `<i class="fa fa-spinner fa-spin"></i> ${done}/${total}...`; };
+            updateLabel();
+            const results = await runWithConcurrency(previewData, BULK_CONCURRENCY, async (p) => {
+                try { await fetchFormAndSave(p.tagName, fd => fd.set(p.formField, p.newVal)); }
+                finally { done++; updateLabel(); }
+            });
+            const ok = results.filter(r => r.ok).length;
+            const fail = results.length - ok;
+            results.forEach((r, i) => { if (!r.ok) {
+                console.warn(CFG.logPrefix, 'S&R failed', previewData[i].tagName, r.error);
+                logAppend('error','Sök/Ersätt misslyckades för '+previewData[i].tagName+': '+r.error.message,'inu');
+            }});
             m.remove();
             toastOk(`${ok} uppdaterade` + (fail ? `, ${fail} misslyckades` : ''));
             // Refresh the DataTables view
-            const sc = document.createElement('script');
-            sc.textContent = `try{$('#tagtable').dataTable()._fnAjaxUpdate();}catch(e){}`;
-            document.head.appendChild(sc); sc.remove();
+            runInPage(`try{$('#tagtable').dataTable()._fnAjaxUpdate();}catch(e){}`);
         });
     }
 
@@ -3572,6 +4043,11 @@ Visa allt
             this.sound = false;
             this.el = null;
             this.audioCtx = null;
+            // Opt-in: pause polling when the tab is hidden. Off by default —
+            // commissioners often keep this on a 2nd monitor where document.hidden
+            // can lie about visibility.
+            this.pauseHidden = !!GM_getValue('inu_mon_pause_hidden', false);
+            this._visHandler = null;
         }
 
         open() {
@@ -3590,6 +4066,7 @@ Visa allt
     <span class="inu-mon-controls">
         <button title="Spotlight vid utanför skalning (O)" class="inu-mon-btn inu-mon-btn-active" data-act="oor"><i class="fa fa-exclamation-triangle"></i></button>
         <button title="Ljud på/av (S)" class="inu-mon-btn" data-act="sound"><i class="fa fa-volume-off"></i></button>
+        <button title="Pausa när dold (H)" class="inu-mon-btn${this.pauseHidden ? ' inu-mon-btn-active' : ''}" data-act="pauseHidden"><i class="fa fa-moon-o"></i></button>
         <button title="Mörkt/ljust (D)" class="inu-mon-btn" data-act="theme"><i class="fa fa-adjust"></i></button>
         <button title="Fullskärm (F)" class="inu-mon-btn" data-act="full"><i class="fa fa-expand"></i></button>
         <button title="Stäng (Esc)" class="inu-mon-btn" data-act="close"><i class="fa fa-times"></i></button>
@@ -3614,6 +4091,17 @@ Visa allt
             this.bindButtons();
             this.updateClock();
             this.clockTimer = setInterval(() => this.updateClock(), 1000);
+            // When pauseHidden is on, poll() exits early on hidden — but as
+            // soon as the tab is visible again we want a fresh sample, not
+            // to wait CFG.pollMs for the next scheduled tick.
+            this._visHandler = () => {
+                if (this.closed) return;
+                if (!document.hidden && this.pauseHidden) {
+                    clearTimeout(this.pollTimer);
+                    this.poll();
+                }
+            };
+            document.addEventListener('visibilitychange', this._visHandler);
             this.poll();
         }
 
@@ -3621,6 +4109,7 @@ Visa allt
             this.closed = true;
             clearTimeout(this.pollTimer);
             clearInterval(this.clockTimer);
+            if (this._visHandler) document.removeEventListener('visibilitychange', this._visHandler);
             if (this.el) this.el.remove();
             document.removeEventListener('keydown', this._keyHandler);
             if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -3872,6 +4361,12 @@ ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa f
 
         async poll() {
             if (this.closed) return;
+            // Opt-in skip when the tab is hidden — visibilitychange handler
+            // will fire poll() again immediately when we come back.
+            if (this.pauseHidden && document.hidden) {
+                this.pollTimer = setTimeout(() => this.poll(), CFG.pollMs);
+                return;
+            }
             try {
                 const params = this.allTags.map(t => 'tag=' + t.id).join('&');
                 const ctrlParams = this.ctrlTagNames.map(n => 'tag=' + encodeURIComponent(n)).join('&');
@@ -4112,7 +4607,7 @@ ${this.buildTimelineHtml(group.key)}`;
                 gain.connect(this.audioCtx.destination);
                 osc.start();
                 osc.stop(this.audioCtx.currentTime + 0.12);
-            } catch (e) {}
+            } catch (e) { console.warn(CFG.logPrefix, 'monitor beep failed', e); }
         }
 
         updateClock() {
@@ -4129,6 +4624,11 @@ ${this.buildTimelineHtml(group.key)}`;
                 if (act === 'theme') { this.dark = !this.dark; this.el.classList.toggle('dark', this.dark); this.el.classList.toggle('light', !this.dark); }
                 if (act === 'oor') { this.spotOOR = !this.spotOOR; btn.classList.toggle('inu-mon-btn-active', this.spotOOR); if (!this.spotOOR) this.clearOORSpotCards(); }
                 if (act === 'sound') { this.sound = !this.sound; btn.querySelector('i').className = 'fa fa-volume-' + (this.sound ? 'up' : 'off'); }
+                if (act === 'pauseHidden') {
+                    this.pauseHidden = !this.pauseHidden;
+                    GM_setValue('inu_mon_pause_hidden', this.pauseHidden);
+                    btn.classList.toggle('inu-mon-btn-active', this.pauseHidden);
+                }
                 if (act === 'full') {
                     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
                     else this.el.requestFullscreen().catch(() => {});
@@ -4143,6 +4643,12 @@ ${this.buildTimelineHtml(group.key)}`;
                 if (e.key.toLowerCase() === 'd') { this.dark = !this.dark; this.el.classList.toggle('dark', this.dark); this.el.classList.toggle('light', !this.dark); }
                 if (e.key.toLowerCase() === 'o') { this.spotOOR = !this.spotOOR; const b = this.el.querySelector('[data-act="oor"]'); if (b) b.classList.toggle('inu-mon-btn-active', this.spotOOR); if (!this.spotOOR) this.clearOORSpotCards(); }
                 if (e.key.toLowerCase() === 's') { this.sound = !this.sound; const i = this.el.querySelector('[data-act="sound"] i'); if (i) i.className = 'fa fa-volume-' + (this.sound ? 'up' : 'off'); }
+                if (e.key.toLowerCase() === 'h') {
+                    this.pauseHidden = !this.pauseHidden;
+                    GM_setValue('inu_mon_pause_hidden', this.pauseHidden);
+                    const b = this.el.querySelector('[data-act="pauseHidden"]');
+                    if (b) b.classList.toggle('inu-mon-btn-active', this.pauseHidden);
+                }
                 if (e.key.toLowerCase() === 'c') { const s = this.el.querySelector('#inu-mon-spot'); if (s) s.innerHTML = '<div class="inu-mon-spot-empty"><i class="fa fa-plug"></i><br>Väntar på förändring...</div>'; }
             };
             document.addEventListener('keydown', this._keyHandler);
@@ -4279,9 +4785,7 @@ ${this.buildTimelineHtml(group.key)}`;
     function refreshDeviceTable() {
         // Cache already updated optimistically by the toggle callback.
         // Trigger a quick table refresh so status text/row class updates.
-        const sc = document.createElement('script');
-        sc.textContent = 'if(typeof GetDeviceList==="function")GetDeviceList(false);';
-        document.head.appendChild(sc); sc.remove();
+        runInPage('if(typeof GetDeviceList==="function")GetDeviceList(false);');
     }
 
     function setDeviceCheckbox(fd, name, enabled) {
@@ -4450,8 +4954,10 @@ ${this.buildTimelineHtml(group.key)}`;
             }
         }
 
-        // Pass 2: async fetch for rows without cached toggle state
-        for (const item of toFetch) {
+        // Pass 2: parallel fetch for rows without cached toggle state.
+        // Sequential per-device fetches at ~150ms each made this take ~7s
+        // on a 50-device site — concurrency-cap brings it to ~1s.
+        await runWithConcurrency(toFetch, BULK_CONCURRENCY, async (item) => {
             try {
                 const r = await fetch('/device/ActionEdit?show=1&type=device&guid=' + item.guid);
                 const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
@@ -4468,8 +4974,9 @@ ${this.buildTimelineHtml(group.key)}`;
             } catch (e) {
                 setIpCell(item.tdIp, 'fel');
                 console.warn(CFG.logPrefix, 'Device fetch failed', item.guid, e);
+                logAppend('error', 'Enhetsuppslag misslyckades: ' + item.guid + ' — ' + e.message, 'inu');
             }
-        }
+        });
     }
 
     // Device cell → form field mapping (cell indices are: 0=Namn, 1=Typ, 2=Tillstånd, 3=Beskrivning, 4=IP, 5=Port, 6=Slave)
@@ -4550,8 +5057,7 @@ ${this.buildTimelineHtml(group.key)}`;
             }
         });
 
-        const sc = document.createElement('script');
-        sc.textContent = `(function(){
+        runInPage(`(function(){
             if(!$.contextMenu) return;
             var editable={0:true,3:true,4:true,5:true,6:true};
             var _cell=-1;
@@ -4575,8 +5081,7 @@ ${this.buildTimelineHtml(group.key)}`;
                     };
                 }
             });
-        })();`;
-        document.head.appendChild(sc); sc.remove();
+        })();`);
     }
 
     // ============================================================
@@ -5688,7 +6193,7 @@ ${this.buildTimelineHtml(group.key)}`;
                     patternDefault = existId.replace(/_\d+$/, '_##');
                     if (patternDefault === existId) patternDefault = existId + '_##';
                 }
-            } catch(e) {}
+            } catch(e) { console.warn(CFG.logPrefix, 'batch-generate pattern probe failed', e); }
         }
 
         const overlay = iDoc.createElement('div');
@@ -5938,26 +6443,32 @@ ${this.buildTimelineHtml(group.key)}`;
             injectEditorStyles(iDoc);
             injectEditorToolbar(iframe);
 
-            editorApplyGrid();
+            if (!inuOff('grid')) editorApplyGrid();
             editorLoadLocks();
             editorApplyAllLocks();
             editorUpdateUndoButtons();
             editorUpdateZoom();
 
             const wpp = iDoc.getElementById('wpp');
-            new MutationObserver(muts => {
-                for (const m of muts) {
-                    if (m.type === 'attributes' && m.attributeName === 'class') {
-                        const el = m.target;
-                        if (!el.classList.contains('wpCompObject') || el.classList.contains('ui-draggable-disabled')) continue;
-                        if (editorGridEnabled && $(el).data('ui-draggable')) $(el).draggable('option', 'grid', [editorGridSize, editorGridSize]);
-                        if (_editorLocked[el.id]) editorApplyLock(el, true);
+            if (!inuOff('observers')) {
+                // Both editor observers tracked so cleanupPageEditor can disconnect
+                // them on SPA nav. Iframe doc is reused across pageid changes, so
+                // without this we'd accumulate observers on #wpp every visit.
+                const classObs = trackObserver(new MutationObserver(muts => {
+                    for (const m of muts) {
+                        if (m.type === 'attributes' && m.attributeName === 'class') {
+                            const el = m.target;
+                            if (!el.classList.contains('wpCompObject') || el.classList.contains('ui-draggable-disabled')) continue;
+                            if (!inuOff('grid') && editorGridEnabled && $(el).data('ui-draggable')) $(el).draggable('option', 'grid', [editorGridSize, editorGridSize]);
+                            if (_editorLocked[el.id]) editorApplyLock(el, true);
+                        }
                     }
-                }
-            }).observe(wpp, { subtree: true, attributes: true, attributeFilter: ['class'] });
-            // Zoom observer — watch #wpp style for transform changes
-            new MutationObserver(() => editorUpdateZoom())
-                .observe(wpp, { attributes: true, attributeFilter: ['style'] });
+                }));
+                classObs.observe(wpp, { subtree: true, attributes: true, attributeFilter: ['class'] });
+                // Zoom observer — watch #wpp style for transform changes
+                trackObserver(new MutationObserver(() => editorUpdateZoom()))
+                    .observe(wpp, { attributes: true, attributeFilter: ['style'] });
+            }
 
             // Middle-mouse-button pan.
             // WebPort stores pan as "translate(Xpx, Ypx) scale(s, s)" on #wpp inline style.
@@ -5985,28 +6496,30 @@ ${this.buildTimelineHtml(group.key)}`;
                     wpp.style.transform = `translate(${tx}px, ${ty}px)`;
                 }
             };
-            iDoc.addEventListener('mousedown', e => {
-                if (e.button !== 1) return;
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                const [origTx, origTy] = getWppTranslate();
-                const startX = e.clientX;
-                const startY = e.clientY;
-                iDoc.body.style.cursor = 'grabbing';
-                const onMove = mv => {
-                    setWppTranslate(origTx + (mv.clientX - startX), origTy + (mv.clientY - startY));
-                };
-                const onUp = up => {
-                    if (up.button !== 1) return;
-                    iDoc.removeEventListener('mousemove', onMove, true);
-                    iDoc.removeEventListener('mouseup',   onUp,   true);
-                    iDoc.body.style.cursor = '';
-                };
-                iDoc.addEventListener('mousemove', onMove, true);
-                iDoc.addEventListener('mouseup',   onUp,   true);
-            }, true);
-            // Suppress browser autoscroll overlay on middle click
-            iDoc.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); }, true);
+            if (!inuOff('midclick')) {
+                iDoc.addEventListener('mousedown', e => {
+                    if (e.button !== 1) return;
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    const [origTx, origTy] = getWppTranslate();
+                    const startX = e.clientX;
+                    const startY = e.clientY;
+                    iDoc.body.style.cursor = 'grabbing';
+                    const onMove = mv => {
+                        setWppTranslate(origTx + (mv.clientX - startX), origTy + (mv.clientY - startY));
+                    };
+                    const onUp = up => {
+                        if (up.button !== 1) return;
+                        iDoc.removeEventListener('mousemove', onMove, true);
+                        iDoc.removeEventListener('mouseup',   onUp,   true);
+                        iDoc.body.style.cursor = '';
+                    };
+                    iDoc.addEventListener('mousemove', onMove, true);
+                    iDoc.addEventListener('mouseup',   onUp,   true);
+                }, true);
+                // Suppress browser autoscroll overlay on middle click
+                iDoc.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); }, true);
+            }
 
             const panel = iDoc.getElementById('wp_editpanel');
             $(panel).on('selectablestop', () => {
@@ -6041,12 +6554,12 @@ ${this.buildTimelineHtml(group.key)}`;
                 }, 300);
             });
 
-            if (!iDoc.body.hasAttribute('tabindex')) iDoc.body.setAttribute('tabindex', '-1');
+            if (!inuOff('tabindex') && !iDoc.body.hasAttribute('tabindex')) iDoc.body.setAttribute('tabindex', '-1');
             editorBindKeyboard(iDoc);
             // editorInitTooltip disabled — replaced by diagram tooltip (initDiagramTooltip)
             // which shows the same label + all related live tag values in one tooltip.
             // Called from the delayed setTimeout in init(), not here.
-            iframe.contentWindow.focus();
+            if (!inuOff('focus')) iframe.contentWindow.focus();
 
             editorUpdateToolbarContext();
         };
@@ -6065,25 +6578,33 @@ ${this.buildTimelineHtml(group.key)}`;
             }, 200);
         };
 
-        // Re-run after every iframe reload so toolbar survives WebPort rebuilds
+        // Re-run after every iframe reload so toolbar survives WebPort rebuilds.
+        // Stored on the iframe so cleanupPageEditor can removeEventListener it
+        // (otherwise WebPort reusing the same iframe across pageid changes
+        // accumulates listeners every visit — audit follow-up F-D).
         iframe.addEventListener('load', waitForSymbols);
+        iframe.__inuEditorLoadListener = waitForSymbols;
         waitForSymbols();
     }
 
     let devMutBusy = false;
+    let _devicePageActive = false;
+    function _resetDevicePageActive() { _devicePageActive = false; }
     async function initDevicePage() {
+        if (_devicePageActive) return; // idempotency guard (mirrors _inuTagPageActive)
+        _devicePageActive = true;
         console.log(CFG.logPrefix, 'v' + CFG.version, 'Activating (IO-Enheter)');
         injectStyles();
         addDeviceHeaders();
         await addDeviceColumns();
         initDeviceContextMenu();
         const tb = document.querySelector('#devicetable tbody');
-        if (tb) new MutationObserver(() => {
+        if (tb) trackObserver(new MutationObserver(() => {
             if (devMutBusy) return;
             devMutBusy = true;
             addDeviceHeaders();
             addDeviceColumns().finally(() => { devMutBusy = false; });
-        }).observe(tb, { childList: true });
+        })).observe(tb, { childList: true });
     }
 
     // ============================================================
@@ -6115,7 +6636,10 @@ ${this.buildTimelineHtml(group.key)}`;
                 result.push({ prefix, label, poid, pageid });
             }
             return result;
-        } catch(e) { return []; }
+        } catch(e) {
+            console.warn(CFG.logPrefix, 'getViewSymbols failed:', e);
+            return [];
+        }
     }
 
     async function launchContentMonitor() {
@@ -6250,7 +6774,7 @@ ${this.buildTimelineHtml(group.key)}`;
         _diagramTooltipDoc = iDoc;
 
         // Restore preference (default OFF)
-        try { _diagramTooltipEnabled = GM_getValue('inu_diagram_tooltip', false); } catch (e) {}
+        try { _diagramTooltipEnabled = GM_getValue('inu_diagram_tooltip', false); } catch (e) { console.warn(CFG.logPrefix, 'GM_getValue inu_diagram_tooltip failed', e); }
 
         // Toggle button — in editor toolbar (edit mode) or in the FAB
         // group next to the monitor button (view mode).
@@ -6264,7 +6788,7 @@ ${this.buildTimelineHtml(group.key)}`;
             }
             btn.addEventListener('click', () => {
                 _diagramTooltipEnabled = !_diagramTooltipEnabled;
-                try { GM_setValue('inu_diagram_tooltip', _diagramTooltipEnabled); } catch (e) {}
+                try { GM_setValue('inu_diagram_tooltip', _diagramTooltipEnabled); } catch (e) { console.warn(CFG.logPrefix, 'GM_setValue inu_diagram_tooltip failed', e); }
                 updateBtn();
                 if (!_diagramTooltipEnabled) hideTooltip();
             });
@@ -6297,7 +6821,12 @@ ${this.buildTimelineHtml(group.key)}`;
         }
 
         fetchValues();
-        setInterval(fetchValues, 2000);
+        // Skip the body when the tab is hidden — diagrams aren't realtime-
+        // critical, and a backgrounded tab burns network for nothing. We
+        // catch back up immediately on visibilitychange below.
+        // Tracked so SPA nav cancels it (otherwise it polls forever).
+        trackTimer(setInterval(() => { if (!document.hidden) fetchValues(); }, 2000));
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchValues(); });
 
         function extractPoid(el) {
             const div = el.closest('.wpCompObject');
@@ -6458,395 +6987,239 @@ ${this.buildTimelineHtml(group.key)}`;
 
         console.log(CFG.logPrefix, 'Diagram tooltip active for', pageId, '(' + wpp.querySelectorAll('.wpCompObject').length + ' components)');
 
-        // Watch for SPA navigation: if the iframe document changes, reset and
-        // re-initialize. Check every 2 seconds alongside the value refresh.
-        setInterval(() => {
-            const curDoc = iframe.contentDocument || iframe.contentWindow?.document;
-            if (curDoc && curDoc !== _diagramTooltipDoc) {
-                _diagramTooltipDoc = null; // reset so next call re-initializes
-                initDiagramTooltip();
-            }
-        }, 2000);
+        // Watch for SPA navigation that swaps the iframe document. Listen for
+        // the iframe's `load` event instead of polling — fires once per nav,
+        // doesn't burn network/CPU between navs, and survives SPA route changes
+        // because the listener is on the iframe itself (which the host page
+        // reuses across pageid changes). The previous polling implementation
+        // was the largest interval-leak source on long sessions (audit F2).
+        // Install AT MOST ONCE per iframe element; otherwise every recursive
+        // re-init adds another listener and they all stack up.
+        if (!iframe.__inuTooltipLoadListener) {
+            const onLoad = () => {
+                const curDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (curDoc && curDoc !== _diagramTooltipDoc) {
+                    _diagramTooltipDoc = null;
+                    initDiagramTooltip();
+                }
+            };
+            iframe.addEventListener('load', onLoad);
+            iframe.__inuTooltipLoadListener = onLoad;
+        }
 
         } catch (e) { console.error(CFG.logPrefix, 'Diagram tooltip init failed:', e); }
     }
 
     // ============================================================
-    // START PAGE EDITOR
-    // ============================================================
-    function isStartPageEdit() {
-        return location.pathname === '/main/edit';
-    }
-
-    function _spe_parseContent() {
-        const editor = typeof tinymce !== 'undefined' && tinymce.activeEditor;
-        if (!editor) return null;
-        const body = editor.getBody();
-        const h1 = body.querySelector('h1');
-        const h4 = body.querySelector('h4');
-        const anchor = body.querySelector('a.weatherwidget-io');
-        const img = body.querySelector('img');
-
-        const siteName = h1 ? h1.textContent.trim() : '';
-        let street = '', zipCity = '';
-        if (h4) {
-            const tmp = document.createElement('div');
-            tmp.innerHTML = h4.innerHTML;
-            const br = tmp.querySelector('br');
-            if (br) {
-                const before = [], after = [];
-                let found = false;
-                for (const n of tmp.childNodes) {
-                    if (n === br) { found = true; continue; }
-                    (found ? after : before).push(n.textContent || '');
-                }
-                street = before.join('').trim();
-                zipCity = after.join('').trim();
-            } else {
-                street = h4.textContent.trim();
-            }
-        }
-
-        let weatherHref = '', weatherLabel = '';
-        if (anchor) {
-            weatherHref = anchor.getAttribute('href') || '';
-            weatherLabel = anchor.getAttribute('data-label_1') || '';
-        }
-
-        const imageSrc = img ? (img.getAttribute('src') || '') : '';
-
-        return { siteName, street, zipCity, weatherHref, weatherLabel, imageSrc };
-    }
-
-    function _spe_buildHtml(vals) {
-        let html = '<p>\n<script>\nwindow.onresize = function(event) {\n    var wwidth = $(window).width();\n    var maxWidth = 600;\n    if(wwidth > maxWidth){\n        $("#inuforecast").width(800);\n    }else{\n        $("#inuforecast").width(wwidth*0.9);\n    }\n};\n\n</script>\n</p>\n';
-        html += '<div style="width: 100%; max-width: 700px; margin: 40px auto 0; text-align: center; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,.08); overflow: hidden;">\n';
-        if (vals.imageSrc) {
-            html += '<div style="padding: 32px 20px 16px;">';
-            html += '<img style="display: block; margin: auto; max-width: 320px; max-height: 100px;" src="' + vals.imageSrc + '" />';
-            html += '</div>\n';
-        }
-        html += '<div style="padding: 8px 20px 8px;">';
-        html += '<h1 style="margin: 0 0 4px; font-size: 26px; color: #1a1a1a;">' + vals.siteName + '</h1>\n';
-        html += '<div style="width: 40px; height: 3px; background: #1b5e20; border-radius: 2px; margin: 12px auto 16px;"></div>\n';
-        html += '<p style="margin: 0 0 24px; font-size: 14px; color: #666;">' + vals.street + '<br />' + vals.zipCity + '</p>\n';
-        html += '</div>';
-        if (vals.weatherHref) {
-            html += '<div id="inuforecast" style="height: 200px; width: 100%; max-width: 640px; margin: 0 auto; padding: 0 20px;">';
-            html += '<a class="weatherwidget-io" href="' + vals.weatherHref + '" data-label_1="' + vals.weatherLabel + '" data-label_2="Just nu" data-theme="pure">' + vals.weatherLabel + ' Just nu</a>';
-            html += '</div>\n';
-            html += '<p>\n<script>\n!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=\'https://weatherwidget.io/js/widget.min.js\';fjs.parentNode.insertBefore(js,fjs);}}(document,\'script\',\'weatherwidget-io-js\');\n</script>\n</p>';
-        }
-        html += '<div style="border-top: 1px solid #eee; padding: 12px 20px; margin-top: 16px;">';
-        html += '<p style="margin: 0; font-size: 10px; color: #bbb;">Powered by INU WebPort+</p>';
-        html += '</div>\n</div>';
-        return html;
-    }
-
-    function _spe_applyContent(vals) {
-        const editor = typeof tinymce !== 'undefined' && tinymce.activeEditor;
-        if (!editor) return;
-        const body = editor.getBody();
-        const hasContent = body.textContent.trim().length > 0 || body.querySelector('img');
-        if (hasContent && !confirm('Startsidan har redan innehåll. Vill du ersätta allt med den nya mallen?')) return false;
-        editor.setContent(_spe_buildHtml(vals));
-        editor.setDirty(true);
-        editor.undoManager.add();
-        editor.fire('change');
-        return true;
-    }
-
-    let _spe_pageid = '';
-
-    async function _spe_getPageId() {
-        if (_spe_pageid) return _spe_pageid;
-        try {
-            let urlPid = '';
-            const link = document.querySelector('a[href*="pageid="]');
-            if (link) {
-                const m = link.href.match(/pageid=([^&"']+)/);
-                if (m) urlPid = m[1];
-            }
-            if (!urlPid) {
-                const r = await fetch('/page');
-                const html = await r.text();
-                const m = html.match(/pageid=([^&"']+)/);
-                if (m) urlPid = m[1];
-            }
-            if (!urlPid) return '';
-            const r = await fetch('/page/pageproperties?pageid=' + urlPid);
-            const html = await r.text();
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-            const inp = doc.querySelector('input[name="pageid"]');
-            if (inp) { _spe_pageid = inp.value; return _spe_pageid; }
-            _spe_pageid = urlPid;
-            return _spe_pageid;
-        } catch (e) { return ''; }
-    }
-
-    async function _spe_fetchBackgrounds() {
-        try {
-            const pageid = await _spe_getPageId();
-            if (!pageid) return [];
-            const r = await fetch('/page/pageproperties?pageid=' + pageid);
-            const html = await r.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const sel = doc.querySelector('select[name="background"]');
-            if (!sel) return [];
-            return Array.from(sel.options)
-                .filter(o => o.value.startsWith('/system/backgrounds/'))
-                .map(o => ({ path: o.value, name: o.text }));
-        } catch (e) {
-            console.error(CFG.logPrefix, 'Failed to fetch backgrounds:', e);
-            return [];
-        }
-    }
-
-    async function _spe_uploadBackground(file) {
-        const pageid = await _spe_getPageId();
-        if (!pageid) throw new Error('Kunde inte hitta ett pageid för uppladdning');
-        // Snapshot the page's current settings so we can restore after upload
-        const r0 = await fetch('/page/pageproperties?pageid=' + pageid);
-        const html = await r0.text();
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-        const origForm = doc.querySelector('form[action*="updatepageproperties"]');
-        if (!origForm) throw new Error('Kunde inte läsa sidinställningar');
-        const restoreData = new FormData(origForm);
-
-        // Upload the file (side-effect: temporarily sets it as page bg)
-        const fd = new FormData();
-        fd.append('pageid', pageid);
-        fd.append('background', file);
-        const r1 = await fetch('/page/updatepageproperties', { method: 'POST', body: fd });
-        if (!r1.ok) throw new Error('Uppladdning misslyckades (' + r1.status + ')');
-
-        // Restore original page settings immediately
-        await fetch('/page/updatepageproperties', { method: 'POST', body: restoreData });
-
-        return '/system/backgrounds/' + file.name.toLowerCase();
-    }
-
-    function openStartPageEditor() {
-        const cur = _spe_parseContent();
-        if (!cur) { toastErr('Kunde inte läsa sidinnehållet'); return; }
-
-        const m = modal(`
-<h3><i class="fa fa-home"></i> Redigera startsida</h3>
-<div style="display:flex;gap:16px;margin-bottom:8px;">
-  <div style="flex:1;">
-    <label>Anläggningsnamn</label>
-    <input id="spe-name" value="" placeholder="T.ex. Stora Mossen">
-    <label>Gatuadress</label>
-    <input id="spe-street" value="" placeholder="T.ex. Sobelgränd 4">
-    <label>Postnummer &amp; ort</label>
-    <input id="spe-zip" value="" placeholder="T.ex. 167 58 Bromma">
-  </div>
-  <div style="flex:0 0 180px;text-align:center;">
-    <label>Logotyp / splash</label>
-    <div id="spe-img-preview" style="width:160px;height:100px;border:1px solid #ddd;border-radius:4px;margin:4px auto 6px;display:flex;align-items:center;justify-content:center;background:#fafafa;overflow:hidden;">
-      <span style="color:#aaa;font-size:11px;">Ingen bild</span>
-    </div>
-    <select id="spe-img-select" style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;font-size:11px;color:#222;font-weight:500;">
-      <option value="">Laddar...</option>
-    </select>
-    <input type="file" id="spe-img-upload" accept="image/svg+xml,image/png,image/jpeg" style="display:none;">
-    <button id="spe-img-upload-btn" type="button" style="margin-top:4px;padding:3px 8px;border:1px solid #ccc;border-radius:3px;background:#fff;font-size:10px;cursor:pointer;color:#555;">Ladda upp ny bild...</button>
-  </div>
-</div>
-<hr style="margin:10px 0 8px;border:none;border-top:1px solid #eee;">
-<label>Väderwidget — platsnamn</label>
-<input id="spe-wlabel" value="" placeholder="T.ex. Bromma">
-<label>Väderwidget — URL <a href="https://weatherwidget.io/" target="_blank" rel="noopener" style="font-size:10px;font-weight:400;color:#5b6abf;margin-left:4px;">Skapa på weatherwidget.io ↗</a></label>
-<input id="spe-whref" value="" placeholder="https://forecast7.com/sv/.../">
-<p style="font-size:10px;color:#888;margin:4px 0 0;">Gå till <a href="https://weatherwidget.io/" target="_blank" rel="noopener" style="color:#5b6abf;">weatherwidget.io</a>, välj plats och tema <b>Pure</b>, kopiera URL:en från den genererade koden.</p>
-<div class="bt"><button class="bx" id="spe-cancel">Avbryt</button><button class="bok" id="spe-save"><i class="fa fa-check"></i> Uppdatera</button></div>`);
-
-        m.querySelector('#spe-name').value = cur.siteName;
-        m.querySelector('#spe-street').value = cur.street;
-        m.querySelector('#spe-zip').value = cur.zipCity;
-        m.querySelector('#spe-wlabel').value = cur.weatherLabel;
-        m.querySelector('#spe-whref').value = cur.weatherHref;
-
-        const preview = m.querySelector('#spe-img-preview');
-        const sel = m.querySelector('#spe-img-select');
-        const curSrc = cur.imageSrc;
-
-        function updatePreview(src) {
-            if (src) {
-                let abs = src;
-                if (abs.startsWith('../')) abs = '/' + abs.replace(/^\.\.\//, '');
-                preview.innerHTML = '<img src="' + abs + '" style="max-width:100%;max-height:100%;object-fit:contain;">';
-            } else {
-                preview.innerHTML = '<span style="color:#aaa;font-size:11px;">Ingen bild</span>';
-            }
-        }
-
-        updatePreview(curSrc);
-
-        _spe_fetchBackgrounds().then(bgs => {
-            sel.innerHTML = '<option value="">— Ingen bild —</option>';
-            for (const bg of bgs) {
-                const opt = document.createElement('option');
-                opt.value = bg.path;
-                opt.textContent = bg.name;
-                if (curSrc && (curSrc.includes(bg.name.toLowerCase().replace(/ /g, '%20')) || bg.path.endsWith(curSrc.replace('../', '/')))) {
-                    opt.selected = true;
-                }
-                sel.appendChild(opt);
-            }
-            if (!sel.value && curSrc) {
-                const fname = curSrc.split('/').pop();
-                for (const opt of sel.options) {
-                    if (opt.value.split('/').pop().toLowerCase() === fname.toLowerCase()) {
-                        opt.selected = true;
-                        break;
-                    }
-                }
-            }
-        });
-
-        sel.addEventListener('change', () => updatePreview(sel.value));
-
-        const fileInput = m.querySelector('#spe-img-upload');
-        const uploadBtn = m.querySelector('#spe-img-upload-btn');
-        uploadBtn.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', async () => {
-            const file = fileInput.files[0];
-            if (!file) return;
-            uploadBtn.disabled = true;
-            uploadBtn.textContent = 'Laddar upp...';
-            try {
-                const path = await _spe_uploadBackground(file);
-                const bgs = await _spe_fetchBackgrounds();
-                sel.innerHTML = '<option value="">— Ingen bild —</option>';
-                for (const bg of bgs) {
-                    const opt = document.createElement('option');
-                    opt.value = bg.path;
-                    opt.textContent = bg.name;
-                    sel.appendChild(opt);
-                }
-                const match = Array.from(sel.options).find(o => o.value.toLowerCase().includes(file.name.toLowerCase()));
-                if (match) match.selected = true;
-                updatePreview(sel.value);
-                toastOk('Bild uppladdad: ' + file.name);
-            } catch (e) {
-                toastErr(e.message || 'Uppladdning misslyckades');
-            }
-            uploadBtn.disabled = false;
-            uploadBtn.textContent = 'Ladda upp ny bild...';
-        });
-
-        m.querySelector('#spe-cancel').addEventListener('click', () => m.remove());
-        m.querySelector('#spe-save').addEventListener('click', () => {
-            let imgSrc = sel.value;
-
-            if (imgSrc && imgSrc.startsWith('/system/')) {
-                imgSrc = '..' + imgSrc;
-            }
-
-            const vals = {
-                siteName: m.querySelector('#spe-name').value.trim(),
-                street: m.querySelector('#spe-street').value.trim(),
-                zipCity: m.querySelector('#spe-zip').value.trim(),
-                weatherLabel: m.querySelector('#spe-wlabel').value.trim(),
-                weatherHref: m.querySelector('#spe-whref').value.trim(),
-                imageSrc: imgSrc
-            };
-            if (!vals.siteName) { toastErr('Ange anläggningsnamn'); return; }
-            if (_spe_applyContent(vals) === false) return;
-            m.remove();
-            toastOk('Startsida uppdaterad — spara sidan för att verkställa');
-        });
-    }
-
-    function initStartPageEditor() {
-        if (document.getElementById('inu-spe-btn')) return;
-
-        const toolbarBody = document.querySelector('.mce-toolbar-grp .mce-toolbar .mce-container-body');
-        if (!toolbarBody) return;
-
-        if (!document.getElementById('inu-spe-styles')) {
-            const s = document.createElement('style');
-            s.id = 'inu-spe-styles';
-            s.textContent = `.mo{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:100000;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 0}.mb{background:#fff;border-radius:8px;padding:20px;min-width:540px;max-width:90vw;width:900px;box-shadow:0 8px 32px rgba(0,0,0,.3);margin:auto}.mb h3{margin:0 0 12px;font-size:15px}.mb label{display:block;margin:6px 0 2px;font-size:11px;font-weight:600;color:#555}.mb input,.mb textarea{width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box}.mb .fr{display:flex;gap:8px}.mb .fr>div{flex:1}.mb .bt{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}.mb .bt button{padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600}.mb .bok{padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;background:#5b6abf;color:#fff}.mb .bok:hover{background:#4a58a8}.mb .bx{background:#eee;color:#333}.mb .bx:hover{background:#ddd}`;
-            document.head.appendChild(s);
-        }
-
-        const wrap = document.createElement('div');
-        wrap.id = 'inu-spe-btn';
-        wrap.className = 'mce-widget mce-btn mce-flow-layout-item';
-        wrap.style.cursor = 'pointer';
-        wrap.innerHTML = '<button type="button" style="background:#1b5e20;color:#fff;border:none;border-radius:3px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">✎ Startsida</button>';
-        wrap.addEventListener('click', openStartPageEditor);
-        toolbarBody.appendChild(wrap);
-    }
-
-    // ============================================================
     // INIT
     // ============================================================
+    // Track tag-table observers so we can disconnect them on SPA navigation —
+    // otherwise long sessions accumulate dead observers tied to detached DOM.
+    const _trackedObservers = [];
+    function trackObserver(obs) { _trackedObservers.push(obs); return obs; }
+    function disconnectTrackedObservers() {
+        while (_trackedObservers.length) {
+            try { _trackedObservers.pop().disconnect(); } catch (e) { console.warn(CFG.logPrefix, 'observer disconnect failed', e); }
+        }
+    }
+
+    // Same idea for setInterval handles: subsystems that start polling loops
+    // must register the handle so we can cancel them on SPA nav. Otherwise a
+    // user navigating page→tag list→page accumulates polling timers that fire
+    // every 2 s for the rest of the tab lifetime (audit findings F1, F2).
+    const _pageTimers = [];
+    function trackTimer(id) { _pageTimers.push(id); return id; }
+    function clearTrackedTimers() {
+        while (_pageTimers.length) {
+            try { clearInterval(_pageTimers.pop()); } catch (e) { console.warn(CFG.logPrefix, 'timer clear failed', e); }
+        }
+    }
+
+    function _initInuTagPage() {
+        if (_inuTagPageActive) return;
+        _inuTagPageActive = true;
+        const isReinit = !!(tbEl && tbEl.isConnected); // SPA nav back to a still-mounted toolbar
+        console.log(CFG.logPrefix, 'v' + CFG.version, isReinit ? 'Re-attaching' : 'Activating');
+        injectStyles();
+        addColumns();
+        if (!isReinit) {
+            patchClickIndices();
+            patchValueUpdate();
+            initContextMenu();
+            createToolbar();
+            hijackSave();
+            hookSearch();
+            initDragSelect();
+        }
+        addColumnFilters();
+        updSummary();
+        // Prefetch select-options form so the IO-Enhet/Datatyp dropdowns
+        // open instantly on first user interaction (otherwise the first
+        // open waits for ~150-500ms HTTP fetch + parse).
+        getSelectOpts().catch(() => {});
+        const tb=document.querySelector('#tagtable tbody');
+        if(tb) {
+            // Single trailing-edge debounce — DataTables can fire several
+            // childList mutations in quick succession during a redraw.
+            // Share one row enumeration across all 6 helpers so we do a
+            // single querySelectorAll instead of one per helper.
+            let _redrawTimer = null;
+            const onMutate = () => {
+                clearTimeout(_redrawTimer);
+                _redrawTimer = setTimeout(() => {
+                    const rows = tb.querySelectorAll('tr.tag');
+                    addColumns(rows);
+                    updSummary(rows);
+                    applyFilter(rows);
+                    syncSelCheckboxes(rows);
+                    addColumnFilters();
+                    reapplyPendingDeletes(rows);
+                }, 50);
+            };
+            trackObserver(new MutationObserver(onMutate)).observe(tb, { childList:true });
+        }
+        const liSave = document.getElementById('li_wp_mnu_wp_tb_save');
+        if (liSave) trackObserver(new MutationObserver(() => {
+            if (pendingDeletes.size > 0 && liSave.style.display === 'none') liSave.removeAttribute('style');
+        })).observe(liSave, {attributes: true, attributeFilter: ['style']});
+    }
+
+    let _inuTagPageActive = false;
+    function _resetInuTagPageActive() { _inuTagPageActive = false; }
+
+    function _maybeInjectBrandPill() {
+        if (isWebPort() && document.getElementById('top-menu') && !document.getElementById('inu-wp-pill')) {
+            if (!inuOff('pill'))    injectBrandPill();
+            if (!inuOff('sources')) checkSources();
+            if (!inuOff('toastr'))  hookToastr();
+            if (!inuOff('logpanel')) initLogPanel();
+        }
+    }
+
+    // Wait for the WebPort editor iframe to have laid out its SVG symbols
+    // before our top-window DOM work runs. Any synchronous mutation during
+    // the layout pass races with WebPort's renderer and produces sub-pixel
+    // offsets + lost rotations.
+    //
+    // Detection strategy: poll the iframe for .wpCompObject *count* and only
+    // fire once the count has been STABLE across N consecutive 100 ms polls.
+    // Previously we fired on first-symbol-presence, which raced because
+    // WebPort renders symbols progressively (first ~50 ms, more arrive
+    // through ~600 ms). After fire(), wait two rAFs so layout commits.
+    //
+    // Safety timeout fires after 8 s so we don't strand the UI on a slow
+    // or blocked iframe. Diagnostic logs at console.debug let us see post-
+    // mortem whether stability detection was holding off long enough.
+    function _waitForEditorIframeReady(cb) {
+        const STABLE_FRAMES = 3;     // ~300 ms of "no new symbols arriving"
+        const POLL_MS = 100;
+        const SAFETY_MS = 8000;
+        const t0 = performance.now();
+        let fired = false;
+        let lastN = -1;
+        let stable = 0;
+        const trace = []; // recent (elapsed, count) samples for the debug log
+
+        const fire = (reason) => {
+            if (fired) return;
+            fired = true;
+            const elapsed = (performance.now() - t0).toFixed(0);
+            console.debug(CFG.logPrefix, 'iframe ready:', reason, '| elapsed:', elapsed + 'ms', '| count:', lastN, '| trace:', trace.slice(-8).join(' → '));
+            // Two animation frames: first lets the latest paint commit,
+            // second confirms it stuck before we mutate the navbar.
+            requestAnimationFrame(() => requestAnimationFrame(cb));
+        };
+        const findIframe = () => document.querySelector('#content iframe');
+        const sample = () => {
+            const f = findIframe();
+            const doc = f && f.contentDocument;
+            const n = doc ? doc.querySelectorAll('.wpCompObject').length : 0;
+            trace.push(`t${(performance.now() - t0).toFixed(0)}=${n}`);
+            return n;
+        };
+        const check = () => {
+            const n = sample();
+            if (n > 0 && n === lastN) {
+                stable++;
+                if (stable >= STABLE_FRAMES) { fire('stable'); return true; }
+            } else {
+                stable = 0;
+            }
+            lastN = n;
+            return false;
+        };
+        if (check()) return;
+        const t = setInterval(() => {
+            if (fired) { clearInterval(t); return; }
+            if (check()) clearInterval(t);
+        }, POLL_MS);
+        // Safety timeout: if WebPort never shows .wpCompObject (renamed class,
+        // empty page, slow load) we still fire so pills/tooltips appear. Warn
+        // loudly because this means the symbol-render race protection failed —
+        // we're going to mutate the navbar without waiting for layout, which
+        // can re-introduce the iframe symbol-offset bug from audit F8.
+        setTimeout(() => {
+            clearInterval(t);
+            if (!fired) {
+                console.warn(CFG.logPrefix, 'editor iframe ready timeout — .wpCompObject count never stabilized after', SAFETY_MS + 'ms; symbol-render race may resurface. trace:', trace.slice(-12).join(' → '));
+                fire('timeout');
+            }
+        }, SAFETY_MS);
+    }
+
+    function _routePage() {
+        if (isInuTagPage())     { _maybeInjectBrandPill(); _initInuTagPage(); return true; }
+        if (isDevicePage())     { _maybeInjectBrandPill(); initDevicePage();  return true; }
+        if (isPageEditorPage()) {
+            // Edit mode: defer all top-window DOM work until WebPort's iframe
+            // has actually rendered its symbols. Earlier we used a fixed 1500 ms
+            // timer which mostly worked but still raced occasionally.
+            _waitForEditorIframeReady(() => {
+                if (!inuOff('editor')) initPageEditor();
+                if (!inuOff('tooltip')) initDiagramTooltip();
+                _maybeInjectBrandPill();
+            });
+            return true;
+        }
+        return false;
+    }
+
     function init() {
         // View-mode diagram pages: @noframes prevents iframe injection.
         // Defer our init briefly to avoid racing with component rendering.
         if (isContentPage()) {
             setTimeout(() => {
-                injectBrandPill(); checkSources(); hookToastr(); initLogPanel();
-                initContentPage();
-                initDiagramTooltip();
+                if (!inuOff('pill'))    injectBrandPill();
+                if (!inuOff('sources')) checkSources();
+                if (!inuOff('toastr'))  hookToastr();
+                if (!inuOff('logpanel')) initLogPanel();
+                if (!inuOff('content')) initContentPage();
+                if (!inuOff('tooltip')) initDiagramTooltip();
             }, 2000);
             return;
         }
 
-        let att=0;
-        const wait=setInterval(()=>{
-            att++;
-            // Bail if not a WebPort page
-            if (att > 5 && !isWebPort()) { clearInterval(wait); return; }
-            // Brand pill, source check, and log panel on any WebPort page (once)
-            if (isWebPort() && document.getElementById('top-menu') && !document.getElementById('inu-wp-pill')) { injectBrandPill(); checkSources(); hookToastr(); initLogPanel(); }
-            if(isInuTagPage()){
-                clearInterval(wait);
-                console.log(CFG.logPrefix, 'v' + CFG.version, 'Activating');
-                injectStyles();
-                addColumns();
-                patchClickIndices();
-                patchValueUpdate();
-                initContextMenu();
-                createToolbar();
-                updSummary();
-                hijackSave();
-                hookSearch();
-                initDragSelect();
-                addColumnFilters();
-                const tb=document.querySelector('#tagtable tbody');
-                if(tb) new MutationObserver(()=>setTimeout(()=>{addColumns();updSummary();applyFilter();syncSelCheckboxes();addColumnFilters();reapplyPendingDeletes();},50)).observe(tb,{childList:true});
-                // Keep save button visible while pending deletes exist
-                const liSave = document.getElementById('li_wp_mnu_wp_tb_save');
-                if (liSave) new MutationObserver(() => {
-                    if (pendingDeletes.size > 0 && liSave.style.display === 'none') liSave.removeAttribute('style');
-                }).observe(liSave, {attributes: true, attributeFilter: ['style']});
-            } else if(isDevicePage()){
-                clearInterval(wait);
-                initDevicePage();
-            } else if(isPageEditorPage()){
-                clearInterval(wait);
-                // Delay editor init to let WebPort finish rendering
-                // components before we access the iframe DOM.
-                setTimeout(() => { initPageEditor(); initDiagramTooltip(); }, 1500);
-            } else if(isStartPageEdit()){
-                clearInterval(wait);
-                // TinyMCE needs time to initialize before we can inject our button
-                const speWait = setInterval(() => {
-                    if (typeof tinymce !== 'undefined' && tinymce.activeEditor) {
-                        clearInterval(speWait);
-                        initStartPageEditor();
-                    }
-                }, 300);
-                setTimeout(() => clearInterval(speWait), 10000);
-            } else if(att>=100) {
-                clearInterval(wait);
-            }
-        }, 300);
+        // Try once now, then watch the body for the elements we depend on.
+        // No more 30-second polling loop running on every WebPort page.
+        if (_routePage()) return;
+        if (inuOff('bodyobs')) return;
+        // Debounced callback: WebPort renders heavy DOM trees in bursts, so a
+        // raw {childList,subtree} observer fires hundreds of times during the
+        // first paint. _routePage() is cheap individually but expensive in
+        // aggregate (4 page-type checks each call). 50 ms trailing-edge debounce
+        // collapses each burst into one route check (audit F4).
+        let _routeTimer = null;
+        const bodyObs = new MutationObserver(() => {
+            if (_routeTimer) return;
+            _routeTimer = setTimeout(() => {
+                _routeTimer = null;
+                if (_routePage()) bodyObs.disconnect();
+            }, 50);
+        });
+        if (document.body) bodyObs.observe(document.body, { childList:true, subtree:true });
+        else document.addEventListener('DOMContentLoaded', () => bodyObs.observe(document.body, { childList:true, subtree:true }), { once:true });
+        // Hard timeout — give up after 30s so we don't observe forever.
+        setTimeout(() => bodyObs.disconnect(), 30000);
     }
 
     init();
@@ -6867,7 +7240,16 @@ ${this.buildTimelineHtml(group.key)}`;
         }
         // Also remove toolbar from outer page (fallback injection path)
         document.getElementById('inu-editor-toolbar')?.remove();
+        // Detach the iframe-load listener so it doesn't accumulate across
+        // pageid changes (WebPort reuses the iframe element, not just its doc).
+        if (_editorIframe && _editorIframe.__inuEditorLoadListener) {
+            try { _editorIframe.removeEventListener('load', _editorIframe.__inuEditorLoadListener); } catch (e) { /* iframe may already be detached */ }
+            delete _editorIframe.__inuEditorLoadListener;
+        }
         _editorIframe = null;
+        // Disconnect tracked observers (editor's class+style observers, plus
+        // the tag-table observer on tag pages — both share _trackedObservers).
+        disconnectTrackedObservers();
     }
 
     // ============================================================
@@ -7020,7 +7402,28 @@ body.dark .inu-pid-stat-hi span:first-child { color:#ddd; }
         document.head.appendChild(s);
     }
 
+    // Cache for trend fetches. The PID advisor commonly re-fetches the same
+    // (tag, window, now) combo when the user opens → closes → re-opens to
+    // tweak inputs. Key buckets `from`/`to` to 60s so repeated opens within
+    // the same minute share a single response. Entries older than 5 min are
+    // pruned on each insert.
+    const _trendCache = new Map();
+    const TREND_CACHE_TTL_MS = 5 * 60 * 1000;
+    const TREND_CACHE_BUCKET_MS = 60 * 1000;
+    function _trendCacheKey(tagName, fromMs, toMs) {
+        const bucket = ms => Math.floor(ms / TREND_CACHE_BUCKET_MS) * TREND_CACHE_BUCKET_MS;
+        return `${tagName}|${bucket(fromMs)}|${bucket(toMs)}`;
+    }
+    function _trendCachePrune() {
+        const cutoff = Date.now() - TREND_CACHE_TTL_MS;
+        for (const [k, v] of _trendCache) if (v.ts < cutoff) _trendCache.delete(k);
+    }
+
     async function fetchTrend(tagName, fromMs, toMs) {
+        const cacheKey = _trendCacheKey(tagName, fromMs, toMs);
+        const cached = _trendCache.get(cacheKey);
+        if (cached && (Date.now() - cached.ts) < TREND_CACHE_TTL_MS) return cached.data;
+
         const enc = t => encodeURIComponent(t);
         // WebPort confirmed endpoint: /trend/gettrenddata
         // Date format: "YYYY-MM-DD HH:MM" (local time, no seconds)
@@ -7037,7 +7440,10 @@ body.dark .inu-pid-stat-hi span:first-child { color:#ddd; }
                 const d = await r.json();
                 // Response shape: { trend: [{ data: [[ts_ms, val], ...] }] }
                 if (d && d.trend && Array.isArray(d.trend) && d.trend[0]?.data?.length >= 2) {
-                    return d.trend[0].data.map(p => ({ ts: p[0], val: parseFloat(p[1]) })).filter(p => !isNaN(p.val));
+                    const out = d.trend[0].data.map(p => ({ ts: p[0], val: parseFloat(p[1]) })).filter(p => !isNaN(p.val));
+                    _trendCachePrune();
+                    _trendCache.set(cacheKey, { ts: Date.now(), data: out });
+                    return out;
                 }
             }
         } catch { /* fall through to probe */ }
@@ -8936,19 +9342,47 @@ ${tuningHtml}
         mo.querySelector('#inu-pid-close').addEventListener('click', () => mo.remove());
     }
 
-    // SPA navigation — re-detect page type when WebPort changes route without a full reload
+    // SPA navigation — re-detect page type when WebPort changes route without
+    // a full reload. Hook into history.pushState/replaceState + popstate
+    // (cheaper and more reliable than polling location.href every 300ms).
     let _lastHref = location.href;
-    setInterval(() => {
+    function _onSpaNav() {
         if (location.href === _lastHref) return;
         _lastHref = location.href;
+        // Tag-table observers belong to the previous route — disconnect them
+        // so a long session doesn't accumulate dead observers on detached DOM.
+        if (!isInuTagPage()) { disconnectTrackedObservers(); _resetInuTagPageActive(); }
+        // Same guard for the device page — without this, navigating away and
+        // back doubles up the device-table MutationObserver and re-registers
+        // $.contextMenu (which jQuery happily allows, breaking right-clicks).
+        if (!isDevicePage()) { _resetDevicePageActive(); }
+        // Tag-to-tag SPA navigation: /tag/all → /tag/errors keeps isInuTagPage()
+        // true so the guard above doesn't fire, but the new route eventually
+        // mounts a fresh tagtable that needs its own toolbar wiring. Reset the
+        // flag so the next _initInuTagPage() call does the work. Caveat: if
+        // _routePage() finds the OLD tagtable still mounted, init runs against
+        // it; rows arrive into the new tagtable without our column decorations
+        // until the user reloads. Acceptable mid-cost — full fix needs a delay
+        // or a tagtable-id-change observer (deferred to Phase 3 architecture).
+        if (isInuTagPage()) { disconnectTrackedObservers(); _resetInuTagPageActive(); }
+        // Page-scoped timers (content-page value polling) — cancel on every
+        // route change. Subsystems that still want a polling loop after the
+        // nav re-register their own timer in their init function.
+        clearTrackedTimers();
         // Always clean up editor toolbar when navigating away — it belongs only in edit mode
         if (!isPageEditorPage()) cleanupPageEditor();
-        let spa_att = 0;
-        const spa_wait = setInterval(() => {
-            spa_att++;
-            if (isPageEditorPage()) { clearInterval(spa_wait); initPageEditor(); }
-            else if (isDevicePage())     { clearInterval(spa_wait); initDevicePage(); }
-            else if (spa_att >= 30)      { clearInterval(spa_wait); }
-        }, 200);
-    }, 300);
+        // Wait for the new route's DOM via MutationObserver instead of polling.
+        if (_routePage()) return;
+        const obs = new MutationObserver(() => { if (_routePage()) obs.disconnect(); });
+        obs.observe(document.body, { childList:true, subtree:true });
+        setTimeout(() => obs.disconnect(), 6000);
+    }
+    (function patchHistory() {
+        const _push = history.pushState;
+        const _replace = history.replaceState;
+        history.pushState = function () { const r = _push.apply(this, arguments); _onSpaNav(); return r; };
+        history.replaceState = function () { const r = _replace.apply(this, arguments); _onSpaNav(); return r; };
+    })();
+    window.addEventListener('popstate', _onSpaNav);
+    window.addEventListener('hashchange', _onSpaNav);
 })();
