@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260504.1350
+// @version      7.4.20260506.0828
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -6739,21 +6739,43 @@ ${this.buildTimelineHtml(group.key)}`;
 
     function initContentPage() {
         if (document.getElementById('inu-content-fab')) return;
-        const fab = document.createElement('div');
-        fab.id = 'inu-content-fab';
-        fab.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;display:flex;gap:6px;align-items:center;';
+
+        // Try to inject into the top-nav next to the brand pill (preferred —
+        // doesn't cover diagram content like a FAB does). Fallback to the
+        // legacy bottom-right FAB if the nav isn't found (e.g. pre-login or
+        // unusual page layout). The element keeps id "inu-content-fab" for
+        // backward compatibility with sibling code that looks it up.
+        const topMenu = document.getElementById('top-menu');
+        const nav = topMenu?.parentElement;
+        let container;
+        if (nav) {
+            container = document.createElement('span');
+            container.id = 'inu-content-fab';
+            container.style.cssText = 'display:inline-flex;align-items:center;gap:6px;margin-left:8px;align-self:center;';
+            const pill = document.getElementById('inu-wp-pill');
+            if (pill && pill.parentElement === nav) pill.after(container);
+            else nav.insertBefore(container, nav.firstChild);
+        } else {
+            container = document.createElement('div');
+            container.id = 'inu-content-fab';
+            container.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;display:flex;gap:6px;align-items:center;';
+            document.body.appendChild(container);
+        }
+        const inToolbar = container.style.position !== 'fixed';
 
         const monBtn = document.createElement('button');
         monBtn.id = 'inu-content-mon-btn';
         monBtn.title = 'Live Monitor (WP+)';
         monBtn.innerHTML = '<i class="fa fa-television"></i>';
-        monBtn.style.cssText = 'width:42px;height:42px;border-radius:50%;background:#1e3a5f;color:#fff;border:none;font-size:16px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;transition:background .15s;';
+        if (inToolbar) {
+            monBtn.style.cssText = 'background:#1e3a5f;color:#fff;border:none;border-radius:3px;padding:3px 9px;cursor:pointer;font-size:11px;font-weight:600;height:22px;display:inline-flex;align-items:center;justify-content:center;';
+        } else {
+            monBtn.style.cssText = 'width:42px;height:42px;border-radius:50%;background:#1e3a5f;color:#fff;border:none;font-size:16px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;transition:background .15s;';
+        }
         monBtn.addEventListener('mouseenter', () => { monBtn.style.background = '#2d5a9e'; });
         monBtn.addEventListener('mouseleave', () => { monBtn.style.background = '#1e3a5f'; });
         monBtn.addEventListener('click', launchContentMonitor);
-        fab.appendChild(monBtn);
-
-        document.body.appendChild(fab);
+        container.appendChild(monBtn);
     }
 
     // ============================================================
@@ -6782,8 +6804,11 @@ ${this.buildTimelineHtml(group.key)}`;
         // Restore preference (default OFF)
         try { _diagramTooltipEnabled = GM_getValue('inu_diagram_tooltip', false); } catch (e) { console.warn(CFG.logPrefix, 'GM_getValue inu_diagram_tooltip failed', e); }
 
-        // Toggle button — in editor toolbar (edit mode) or in the FAB
-        // group next to the monitor button (view mode).
+        // Toggle button — in editor toolbar (edit mode), or alongside the
+        // monitor button in the content-mode container (view mode). The
+        // content container now defaults to the top-nav (next to the brand
+        // pill); only falls back to a bottom-right FAB when the nav isn't
+        // available. Pick the matching button style accordingly.
         if (!document.getElementById('inu-dt-toggle')) {
             const btn = document.createElement('button');
             btn.id = 'inu-dt-toggle';
@@ -6798,18 +6823,25 @@ ${this.buildTimelineHtml(group.key)}`;
                 updateBtn();
                 if (!_diagramTooltipEnabled) hideTooltip();
             });
-            updateBtn();
             const editorTb = iDoc.getElementById('inu-editor-toolbar');
+            const contentContainer = document.getElementById('inu-content-fab');
+            const contentInToolbar = !!contentContainer && contentContainer.style.position !== 'fixed';
             if (editorTb) {
                 btn.style.cssText = 'background:#1565c0;color:#fff;border:none;border-radius:4px;padding:3px 9px;cursor:pointer;font-size:11px;font-weight:600;';
                 editorTb.appendChild(btn);
-            } else {
-                // Add to FAB group next to monitor button
+            } else if (contentInToolbar) {
+                // Top-nav inline pill style — matches monitor button next to it
+                btn.style.cssText = 'background:#1565c0;color:#fff;border:none;border-radius:3px;padding:3px 9px;cursor:pointer;font-size:11px;font-weight:600;height:22px;display:inline-flex;align-items:center;justify-content:center;';
+                contentContainer.appendChild(btn);
+            } else if (contentContainer) {
+                // Legacy FAB fallback (no top-nav available)
                 btn.style.cssText = 'width:42px;height:42px;border-radius:50%;color:#fff;border:none;font-size:16px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;transition:background .15s;';
-                const fab = document.getElementById('inu-content-fab');
-                if (fab) fab.appendChild(btn);
-                else document.body.appendChild(btn);
+                contentContainer.appendChild(btn);
+            } else {
+                btn.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;width:42px;height:42px;border-radius:50%;color:#fff;border:none;font-size:16px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;';
+                document.body.appendChild(btn);
             }
+            updateBtn();
         }
 
         // Cache for refreshvalues response
