@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260506.0828
+// @version      7.4.20260506.0837
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -38,8 +38,6 @@
     //   midclick   — skip the middle-click capture-phase mousedown/auxclick handlers
     //   pill       — skip injectBrandPill (top-menu INU button)
     //   sources    — skip checkSources (tag source checker)
-    //   toastr     — skip hookToastr (toastr wrapper)
-    //   logpanel   — skip initLogPanel (activity log panel)
     //   bodyobs    — skip the document.body MutationObserver fallback
     const _INU_OFF = (() => {
         const raw = new URLSearchParams(location.search).get('inu_off') || '';
@@ -151,36 +149,6 @@
     function saveUndo(tag, s) { undoMap[tag] = s; }
     function getUndo(tag) { return undoMap[tag] || null; }
     function delUndo(tag) { delete undoMap[tag]; }
-
-    // Notification log — persisted in sessionStorage so navigation doesn't wipe it
-    const _logEntries = [];
-    const LOG_MAX = 150;
-    const LOG_MAX_AGE_MS = 8 * 60 * 60 * 1000; // discard entries older than 8 hours
-    const LOG_SS_KEY = 'inu_wp_log';
-    let _logEntriesEl = null, _logBodyEl = null;
-    let _logFilter = 'all'; // 'all' | 'success' | 'error' | 'warning'
-    let _ownToast = false;  // flag: true while our own toast() calls toastr
-
-    // Load persisted entries (skip anything older than LOG_MAX_AGE_MS)
-    (function _loadLog() {
-        try {
-            const raw = sessionStorage.getItem(LOG_SS_KEY);
-            if (!raw) return;
-            const now = Date.now();
-            JSON.parse(raw).forEach(e => {
-                const ts = new Date(e.ts);
-                if (now - ts.getTime() < LOG_MAX_AGE_MS)
-                    _logEntries.push({ ts, level: e.level, msg: e.msg, src: e.src });
-            });
-        } catch(_) { /* corrupted / quota, ignore */ }
-    })();
-
-    function _saveLog() {
-        try {
-            sessionStorage.setItem(LOG_SS_KEY,
-                JSON.stringify(_logEntries.map(e => ({ ts: e.ts.toISOString(), level: e.level, msg: e.msg, src: e.src }))));
-        } catch(_) { /* quota exceeded, ignore */ }
-    }
 
     // ============================================================
     // STYLES
@@ -307,29 +275,6 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
 @keyframes inu-spin { 100% { transform:rotate(360deg); } }
 .ub:hover { opacity:1; }
 .mo { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.4); z-index:100000; display:flex; align-items:flex-start; justify-content:center; overflow-y:auto; padding:20px 0; }
-.inu-log-panel { border-top:1px solid rgba(255,255,255,.08); flex-shrink:0; display:flex; flex-direction:column; font-family:monospace; margin-top:auto; }
-.inu-log-hdr { display:flex; align-items:center; gap:4px; padding:4px 8px; background:#111827; color:#9ca3af; font-size:10px; font-weight:600; cursor:pointer; user-select:none; flex-shrink:0; }
-.inu-log-hdr:hover { background:#1f2937; }
-.inu-log-title { display:flex; align-items:center; gap:5px; flex-shrink:0; }
-.inu-log-filters { display:flex; gap:2px; margin-left:6px; }
-.inu-lf { background:transparent; border:1px solid rgba(255,255,255,.15); color:#6b7280; border-radius:3px; padding:1px 5px; font-size:9px; font-family:monospace; cursor:pointer; font-weight:600; }
-.inu-lf:hover { border-color:rgba(255,255,255,.35); color:#d1d5db; }
-.inu-lf.active { background:#374151; border-color:rgba(255,255,255,.35); color:#f9fafb; }
-.inu-log-spacer { flex:1; }
-.inu-log-clear,.inu-log-tog { background:none; border:none; color:#6b7280; cursor:pointer; padding:0 3px; font-size:11px; line-height:1; }
-.inu-log-clear:hover,.inu-log-tog:hover { color:#d1d5db; }
-.inu-log-body { background:#0f172a; overflow-y:auto; max-height:180px; min-height:40px; }
-.inu-log-empty { color:#374151; font-size:10px; font-family:monospace; padding:8px 10px; font-style:italic; }
-.inu-log-row { display:flex; align-items:flex-start; gap:5px; padding:2px 8px; border-bottom:1px solid rgba(255,255,255,.04); line-height:1.45; font-size:10px; }
-.inu-log-row:last-child { border-bottom:none; }
-.inu-log-ts { color:#9ca3af; flex-shrink:0; white-space:nowrap; }
-.inu-log-src { flex-shrink:0; font-size:8px; padding:1px 3px; border-radius:2px; line-height:1.6; margin-top:1px; }
-.inu-log-src.inu { background:#1e3a5f; color:#60a5fa; }
-.inu-log-src.wp { background:#1c1c1c; color:#6b7280; }
-.inu-log-msg { color:#d1d5db; white-space:pre-wrap; word-break:break-all; }
-.inu-log-row.success .inu-log-msg { color:#86efac; }
-.inu-log-row.error .inu-log-msg { color:#fca5a5; }
-.inu-log-row.warning .inu-log-msg { color:#fcd34d; }
 .mb { background:#fff; border-radius:8px; padding:20px; min-width:540px; max-width:90vw; width:900px; box-shadow:0 8px 32px rgba(0,0,0,.3); margin:auto; }
 .mb h3 { margin:0 0 12px; font-size:15px; }
 .mb label { display:block; margin:6px 0 2px; font-size:11px; font-weight:600; color:#555; }
@@ -450,156 +395,25 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
     // HELPERS
     // ============================================================
     function toast(m, ms=2000) {
-        _ownToast = true;
         const t = unsafeWindow.toastr || window.toastr;
         if (t) t.info(m, '', { timeOut: ms, positionClass: 'toast-bottom-right' });
-        _ownToast = false;
     }
     function toastOk(m) {
-        _ownToast = true;
         const t = unsafeWindow.toastr || window.toastr;
         if (t) t.success(m, '', { timeOut: 2000, positionClass: 'toast-bottom-right' });
-        _ownToast = false;
     }
     function toastErr(m) {
-        _ownToast = true;
         const t = unsafeWindow.toastr || window.toastr;
         if (t) t.error(m, '', { timeOut: 4000, positionClass: 'toast-bottom-right' });
-        _ownToast = false;
     }
 
-    // ============================================================
-    // NOTIFICATION LOG
-    // ============================================================
-    function _logRenderRow(entry) {
-        if (!_logEntriesEl) return;
-        if (_logFilter !== 'all' && entry.level !== _logFilter) return;
-        const d = entry.ts;
-        const ts = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
-        const row = document.createElement('div');
-        row.className = 'inu-log-row ' + entry.level;
-        row.innerHTML =
-            '<span class="inu-log-ts">' + ts + '</span>' +
-            '<span class="inu-log-src ' + entry.src + '">' + entry.src + '</span>' +
-            '<span class="inu-log-msg">' + escHtml(entry.msg) + '</span>';
-        _logEntriesEl.appendChild(row);
-        if (_logBodyEl) _logBodyEl.scrollTop = _logBodyEl.scrollHeight;
-        // Remove empty placeholder if present
-        const empty = _logEntriesEl.querySelector('.inu-log-empty');
-        if (empty) empty.remove();
-    }
-
-    function logAppend(level, msg, src) {
-        const entry = { ts: new Date(), level, msg, src: src || 'wp' };
-        _logEntries.push(entry);
-        if (_logEntries.length > LOG_MAX) _logEntries.shift();
-        _saveLog();
-        _logRenderRow(entry);
-    }
-
-    // Silent log — writes to log panel only, no toast
-    function logInfo(msg) { logAppend('info', msg, 'inu'); }
-
-    function _rebuildLog() {
-        if (!_logEntriesEl) return;
-        _logEntriesEl.innerHTML = '';
-        const visible = _logFilter === 'all' ? _logEntries : _logEntries.filter(e => e.level === _logFilter);
-        if (!visible.length) {
-            _logEntriesEl.innerHTML = '<div class="inu-log-empty">Ingen aktivitet ännu</div>';
-            return;
-        }
-        visible.forEach(_logRenderRow);
-    }
-
-    function hookToastr() {
-        const tr = unsafeWindow.toastr || window.toastr;
-        if (!tr || tr._inuHooked) return;
-        tr._inuHooked = true;
-        ['info','success','error','warning'].forEach(lvl => {
-            const orig = tr[lvl].bind(tr);
-            tr[lvl] = function(msg, title, opts) {
-                const plain = String(msg || '').replace(/<br\s*\/?>/gi,' | ').replace(/<[^>]+>/g,'').trim();
-                if (plain) logAppend(lvl, plain, _ownToast ? 'inu' : 'wp');
-                return orig(msg, title, opts);
-            };
-        });
-    }
-
-    function initLogPanel() {
-        if (document.getElementById('inu-log-panel')) return;
-        // Inject log CSS if injectStyles() hasn't run (non-tag/device pages)
-        if (!document.getElementById('inu-log-style')) {
-            const s = document.createElement('style');
-            s.id = 'inu-log-style';
-            s.textContent = '.inu-log-panel{border-top:1px solid rgba(255,255,255,.08);flex-shrink:0;display:flex;flex-direction:column;font-family:monospace;margin-top:auto}.inu-log-hdr{display:flex;align-items:center;gap:4px;padding:4px 8px;background:#111827;color:#9ca3af;font-size:10px;font-weight:600;cursor:pointer;user-select:none;flex-shrink:0}.inu-log-hdr:hover{background:#1f2937}.inu-log-title{display:flex;align-items:center;gap:5px;flex-shrink:0}.inu-log-filters{display:flex;gap:2px;margin-left:6px}.inu-lf{background:transparent;border:1px solid rgba(255,255,255,.15);color:#6b7280;border-radius:3px;padding:1px 5px;font-size:9px;font-family:monospace;cursor:pointer;font-weight:600}.inu-lf:hover{border-color:rgba(255,255,255,.35);color:#d1d5db}.inu-lf.active{background:#374151;border-color:rgba(255,255,255,.35);color:#f9fafb}.inu-log-spacer{flex:1}.inu-log-clear,.inu-log-tog{background:none;border:none;color:#6b7280;cursor:pointer;padding:0 3px;font-size:11px;line-height:1}.inu-log-clear:hover,.inu-log-tog:hover{color:#d1d5db}.inu-log-body{background:#0f172a;overflow-y:auto;max-height:180px;min-height:40px}.inu-log-empty{color:#374151;font-size:10px;font-family:monospace;padding:8px 10px;font-style:italic}.inu-log-row{display:flex;align-items:flex-start;gap:5px;padding:2px 8px;border-bottom:1px solid rgba(255,255,255,.04);line-height:1.45;font-size:10px}.inu-log-row:last-child{border-bottom:none}.inu-log-ts{color:#9ca3af;flex-shrink:0;white-space:nowrap}.inu-log-src{flex-shrink:0;font-size:8px;padding:1px 3px;border-radius:2px;line-height:1.6;margin-top:1px}.inu-log-src.inu{background:#1e3a5f;color:#60a5fa}.inu-log-src.wp{background:#1c1c1c;color:#6b7280}.inu-log-msg{color:#d1d5db;white-space:pre-wrap;word-break:break-all}.inu-log-row.success .inu-log-msg{color:#86efac}.inu-log-row.error .inu-log-msg{color:#fca5a5}.inu-log-row.warning .inu-log-msg{color:#fcd34d}';
-            document.head.appendChild(s);
-        }
-        // Target the tree nav (second child of nav.sidebar) so panel sits below the tree.
-        const treeNav = document.querySelector('nav.sidebar > nav');
-        if (!treeNav) return;
-        // The SPA renders the tree UL asynchronously, so we may append the panel before the
-        // UL exists. Use a MutationObserver to re-pin the layout whenever children change.
-        treeNav.style.cssText += ';display:flex;flex-direction:column;overflow:hidden;';
-        const _pinLog = () => {
-            const ul = treeNav.querySelector('ul');
-            const p  = document.getElementById('inu-log-panel');
-            if (ul) { ul.style.flex = '1'; ul.style.overflowY = 'auto'; ul.style.minHeight = '0'; }
-            if (p && treeNav.lastElementChild !== p) treeNav.appendChild(p); // keep panel last
-        };
-        // Tracked: WebPort can replace the sidebar on SPA nav, leaving this
-        // observer attached to detached DOM. _onSpaNav clears tracked observers.
-        trackObserver(new MutationObserver(_pinLog)).observe(treeNav, { childList: true });
-        _pinLog();
-        const collapsed = _logEntries.length === 0 ? true : GM_getValue('inu_log_collapsed', false);
-        const panel = document.createElement('div');
-        panel.id = 'inu-log-panel';
-        panel.className = 'inu-log-panel';
-        panel.innerHTML =
-            '<div class="inu-log-hdr">' +
-              '<span class="inu-log-title"><i class="fa fa-terminal"></i> Aktivitetslogg</span>' +
-              '<span class="inu-log-filters">' +
-                '<button class="inu-lf active" data-f="all">Alla</button>' +
-                '<button class="inu-lf" data-f="success">OK</button>' +
-                '<button class="inu-lf" data-f="error">Fel</button>' +
-                '<button class="inu-lf" data-f="warning">Varning</button>' +
-              '</span>' +
-              '<span class="inu-log-spacer"></span>' +
-              '<button class="inu-log-clear" title="Rensa logg"><i class="fa fa-trash"></i></button>' +
-              '<button class="inu-log-tog" title="Dölj/Visa"><i class="fa fa-chevron-' + (collapsed ? 'up' : 'down') + '"></i></button>' +
-            '</div>' +
-            '<div class="inu-log-body">' +
-              '<div class="inu-log-entries"><div class="inu-log-empty">Ingen aktivitet ännu</div></div>' +
-            '</div>';
-        treeNav.appendChild(panel);
-        _logBodyEl = panel.querySelector('.inu-log-body');
-        _logEntriesEl = panel.querySelector('.inu-log-entries');
-        if (collapsed) _logBodyEl.style.display = 'none';
-        // Render any entries buffered before panel was ready
-        if (_logEntries.length) _rebuildLog();
-        // Toggle collapse
-        const togBtn = panel.querySelector('.inu-log-tog');
-        panel.querySelector('.inu-log-hdr').addEventListener('click', () => {
-            const isCollapsed = _logBodyEl.style.display === 'none';
-            _logBodyEl.style.display = isCollapsed ? '' : 'none';
-            togBtn.innerHTML = '<i class="fa fa-chevron-' + (isCollapsed ? 'down' : 'up') + '"></i>';
-            GM_setValue('inu_log_collapsed', !isCollapsed);
-        });
-        // Clear button — stop propagation so it doesn't toggle collapse
-        panel.querySelector('.inu-log-clear').addEventListener('click', e => {
-            e.stopPropagation();
-            _logEntries.length = 0;
-            sessionStorage.removeItem(LOG_SS_KEY);
-            _logEntriesEl.innerHTML = '<div class="inu-log-empty">Ingen aktivitet ännu</div>';
-        });
-        // Filter buttons
-        panel.querySelectorAll('.inu-lf').forEach(btn => {
-            btn.addEventListener('click', e => {
-                e.stopPropagation();
-                _logFilter = btn.dataset.f;
-                panel.querySelectorAll('.inu-lf').forEach(b => b.classList.toggle('active', b.dataset.f === _logFilter));
-                _rebuildLog();
-            });
-        });
+    // Activity log removed — diagnostic messages now go to console.warn /
+    // console.error so they're still visible in DevTools without the
+    // permanent log-panel UI in the sidebar.
+    function logAppend(level, msg) {
+        if (level === 'error')        console.error('[WP+]', msg);
+        else if (level === 'warning') console.warn('[WP+]', msg);
+        else                          console.log('[WP+]', msg);
     }
 
     // Column indices (shifted by CFG.colOffset because our columns are prepended)
@@ -2462,7 +2276,7 @@ tr.tag.inu-dupe > td:nth-child(${OFF+3}) { background:rgba(255,152,0,.25) !impor
                 return;
             }
 
-            toastOk(`${created} taggar skapade` + (failing.length ? `, ${failing.length} fel (se aktivitetsloggen)` : ''));
+            toastOk(`${created} taggar skapade` + (failing.length ? `, ${failing.length} fel (se DevTools-konsol)` : ''));
             m.remove();
             // Refresh the page to show new tags (same mechanism as the bulk flow)
             runInPage('location.reload()');
@@ -7129,8 +6943,6 @@ ${this.buildTimelineHtml(group.key)}`;
         if (isWebPort() && document.getElementById('top-menu') && !document.getElementById('inu-wp-pill')) {
             if (!inuOff('pill'))    injectBrandPill();
             if (!inuOff('sources')) checkSources();
-            if (!inuOff('toastr'))  hookToastr();
-            if (!inuOff('logpanel')) initLogPanel();
         }
     }
 
@@ -7229,8 +7041,6 @@ ${this.buildTimelineHtml(group.key)}`;
             setTimeout(() => {
                 if (!inuOff('pill'))    injectBrandPill();
                 if (!inuOff('sources')) checkSources();
-                if (!inuOff('toastr'))  hookToastr();
-                if (!inuOff('logpanel')) initLogPanel();
                 if (!inuOff('content')) initContentPage();
                 if (!inuOff('tooltip')) initDiagramTooltip();
             }, 2000);
