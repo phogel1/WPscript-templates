@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.5.20260518.2133
+// @version      7.5.20260518.2210
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -3889,6 +3889,7 @@ Visa allt
             this.verified = readVerified();
             this.ignored = new Set();
             this.spotCooldown = {};
+            this.history = {};  // tagId → rolling array of numeric PV values for sparkline
             this.closed = false;
             this.timeline = {}; // key → [{time, type, val}]
             this.pollTimer = null;
@@ -3977,12 +3978,37 @@ Visa allt
             if (this.verified.has(g.key)) card.classList.add('verified');
             const pv = g.tags.find(t => t.suffix === 'PV') || g.tags[0];
             const fault = g.tags.find(t => t.suffix === 'FAULT');
+            const isDigital = pv.suffix === 'V';
+            const spark = isDigital ? '' : `<svg class="inu-mon-spark" viewBox="0 0 80 20" preserveAspectRatio="none"><polyline class="inu-mon-spark-line" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" points=""></polyline></svg>`;
             card.innerHTML = `
 <div class="inu-mon-card-hdr">${this.displayName(g.key)}</div>
 <div class="inu-mon-card-pv" data-tag="${pv.id}">--</div>
+${spark}
 ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa fa-exclamation-circle"></i> <span>OK</span></div>` : ''}
 <div class="inu-mon-card-check"><i class="fa fa-check"></i></div>`;
+            // Restore sparkline from existing history if we have one (e.g. after re-render)
+            if (!isDigital && this.history[pv.id]) this.updateSparkline(card, this.history[pv.id]);
             return card;
+        }
+
+        updateSparkline(card, values) {
+            const poly = card.querySelector('.inu-mon-spark-line');
+            if (!poly || values.length < 2) return;
+            const W = 80, H = 20;
+            let min = values[0], max = values[0];
+            for (let i = 1; i < values.length; i++) {
+                if (values[i] < min) min = values[i];
+                if (values[i] > max) max = values[i];
+            }
+            const range = max - min || 1;
+            const stepX = W / (values.length - 1);
+            let points = '';
+            for (let i = 0; i < values.length; i++) {
+                const x = i * stepX;
+                const y = H - ((values[i] - min) / range) * H;
+                points += x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+            }
+            poly.setAttribute('points', points.trim());
         }
 
         buildGrid() {
@@ -4396,6 +4422,17 @@ ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa f
                     }
                 }
 
+                // Push numeric PV into rolling history and redraw sparkline
+                if (pv.suffix !== 'V') {
+                    const num = parseFloat(String(pvVal).replace(',', '.'));
+                    if (isFinite(num)) {
+                        const arr = this.history[pv.id] || (this.history[pv.id] = []);
+                        arr.push(num);
+                        if (arr.length > 30) arr.shift();
+                        this.updateSparkline(card, arr);
+                    }
+                }
+
                 // Update fault display
                 if (fault) {
                     const fVal = this.values[fault.id] ?? '--';
@@ -4721,6 +4758,11 @@ ${this.buildTimelineHtml(group.key)}`;
 .inu-mon-card-check { display:none; position:absolute; top:4px; right:6px; color:#4caf50; font-size:14px; width:20px; height:20px; align-items:center; justify-content:center; }
 .inu-mon-card-hdr { font-size:15px; font-weight:700; margin-bottom:2px; }
 .inu-mon-card-pv { font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; transition:color .3s; margin:4px 0; }
+.inu-mon-spark { width:100%; height:18px; display:block; margin:2px 0 4px; opacity:.55; }
+.inu-mon-card:hover .inu-mon-spark { opacity:.85; }
+.dark  .inu-mon-spark-line { color:#7aa7ff; }
+.light .inu-mon-spark-line { color:#2d5a9e; }
+.inu-mon-card.oor .inu-mon-spark-line { color:#e53935; }
 .inu-mon-catgrp { display:flex; flex-wrap:wrap; gap:6px; align-items:flex-start; }
 .inu-mon-catgrp-hdr { width:100%; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:0 2px 2px; opacity:.35; }
 .inu-mon-catgrp-ignored { margin-top:12px; padding-top:8px; border-top:1px dashed rgba(128,128,128,.3); }
