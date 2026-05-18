@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.5.20260518.2120
+// @version      7.5.20260518.2133
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -3643,13 +3643,13 @@ ${delSection}
         try { GM_setValue(CTRL_COLLAPSED_KEY, JSON.stringify([...set])); } catch {}
     }
 
-    const SPOT_IGNORED_KEY = 'inu_mon_spot_ignored_v1';
-    function readSpotIgnored() {
-        try { return new Set(JSON.parse(GM_getValue(SPOT_IGNORED_KEY, '[]'))); }
+    const VERIFIED_KEY = 'inu_mon_verified_v1';
+    function readVerified() {
+        try { return new Set(JSON.parse(GM_getValue(VERIFIED_KEY, '[]'))); }
         catch { return new Set(); }
     }
-    function writeSpotIgnored(set) {
-        try { GM_setValue(SPOT_IGNORED_KEY, JSON.stringify([...set])); } catch {}
+    function writeVerified(set) {
+        try { GM_setValue(VERIFIED_KEY, JSON.stringify([...set])); } catch {}
     }
 
     function groupTagsBySensor(tags) {
@@ -3885,8 +3885,9 @@ Visa allt
             this.groups = groupTagsBySensor(tags);
             this.values = {};
             this.prevValues = {};
-            this.verified = new Set();
-            this.ignored = readSpotIgnored();
+            // Verified is persisted across sessions; ignored is session-only
+            this.verified = readVerified();
+            this.ignored = new Set();
             this.spotCooldown = {};
             this.closed = false;
             this.timeline = {}; // key → [{time, type, val}]
@@ -3969,33 +3970,37 @@ Visa allt
             if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
         }
 
-        buildGrid() {
-            const grid = this.el.querySelector('#inu-mon-grid');
-            let lastCat = '', catGroup = null;
-            for (const g of this.groups) {
-                if (g.category !== lastCat) {
-                    lastCat = g.category;
-                    catGroup = document.createElement('div');
-                    catGroup.className = 'inu-mon-catgrp';
-                    const hdr = document.createElement('div');
-                    hdr.className = 'inu-mon-catgrp-hdr';
-                    hdr.textContent = g.category;
-                    catGroup.appendChild(hdr);
-                    grid.appendChild(catGroup);
-                }
-                const card = document.createElement('div');
-                card.className = 'inu-mon-card';
-                card.dataset.sensor = g.key;
-                const pv = g.tags.find(t => t.suffix === 'PV') || g.tags[0];
-                const fault = g.tags.find(t => t.suffix === 'FAULT');
-                card.innerHTML = `
+        buildCard(g) {
+            const card = document.createElement('div');
+            card.className = 'inu-mon-card';
+            card.dataset.sensor = g.key;
+            if (this.verified.has(g.key)) card.classList.add('verified');
+            const pv = g.tags.find(t => t.suffix === 'PV') || g.tags[0];
+            const fault = g.tags.find(t => t.suffix === 'FAULT');
+            card.innerHTML = `
 <div class="inu-mon-card-hdr">${this.displayName(g.key)}</div>
 <div class="inu-mon-card-pv" data-tag="${pv.id}">--</div>
 ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa fa-exclamation-circle"></i> <span>OK</span></div>` : ''}
 <div class="inu-mon-card-check"><i class="fa fa-check"></i></div>`;
-                card.addEventListener('click', () => this.toggleVerified(g.key, card));
-                catGroup.appendChild(card);
-            }
+            return card;
+        }
+
+        buildGrid() {
+            const grid = this.el.querySelector('#inu-mon-grid');
+            this.renderGridSections();
+
+            // Delegated click: ignored cards un-ignore, others toggle verified
+            grid.addEventListener('click', e => {
+                const card = e.target.closest('.inu-mon-card');
+                if (!card) return;
+                const key = card.dataset.sensor;
+                if (!key) return;
+                if (card.dataset.ignored === '1') {
+                    this.setIgnored(key, false);
+                } else {
+                    this.toggleVerified(key, card);
+                }
+            });
 
             // Scroll indicator — shows how many cards are below the fold
             const hint = this.el.querySelector('#inu-mon-scroll-hint');
@@ -4012,8 +4017,51 @@ ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa f
                     hint.style.display = 'none';
                 }
             };
+            this._updateHint = updateHint;
             grid.addEventListener('scroll', updateHint);
             setTimeout(updateHint, 100);
+        }
+
+        renderGridSections() {
+            const grid = this.el.querySelector('#inu-mon-grid');
+            grid.innerHTML = '';
+            let lastCat = '', catGroup = null;
+            const activeGroups = this.groups.filter(g => !this.ignored.has(g.key));
+            for (const g of activeGroups) {
+                if (g.category !== lastCat) {
+                    lastCat = g.category;
+                    catGroup = document.createElement('div');
+                    catGroup.className = 'inu-mon-catgrp';
+                    const hdr = document.createElement('div');
+                    hdr.className = 'inu-mon-catgrp-hdr';
+                    hdr.textContent = g.category;
+                    catGroup.appendChild(hdr);
+                    grid.appendChild(catGroup);
+                }
+                catGroup.appendChild(this.buildCard(g));
+            }
+            const ignoredGroups = this.groups.filter(g => this.ignored.has(g.key));
+            if (ignoredGroups.length) {
+                const catGroup = document.createElement('div');
+                catGroup.className = 'inu-mon-catgrp inu-mon-catgrp-ignored';
+                const hdr = document.createElement('div');
+                hdr.className = 'inu-mon-catgrp-hdr';
+                hdr.textContent = `Ignorerade (${ignoredGroups.length}) — klicka för att återställa`;
+                catGroup.appendChild(hdr);
+                for (const g of ignoredGroups) {
+                    const card = this.buildCard(g);
+                    card.dataset.ignored = '1';
+                    catGroup.appendChild(card);
+                }
+                grid.appendChild(catGroup);
+            }
+            this.updateStatus();
+        }
+
+        setIgnored(key, on) {
+            if (on) this.ignored.add(key); else this.ignored.delete(key);
+            this.renderGridSections();
+            if (this._updateHint) setTimeout(this._updateHint, 50);
         }
 
         toggleVerified(key, card) {
@@ -4024,12 +4072,15 @@ ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa f
                 this.verified.add(key);
                 card.classList.add('verified');
             }
+            writeVerified(this.verified);
             this.updateStatus();
         }
 
         updateStatus() {
             const el = this.el.querySelector('#inu-mon-status');
-            if (el) el.textContent = `${this.verified.size} / ${this.groups.length} verifierade`;
+            if (!el) return;
+            const total = this.groups.length - this.ignored.size;
+            el.textContent = `${this.verified.size} / ${total} verifierade`;
         }
 
         ctrlIcon(prefix, defaultIcon) {
@@ -4589,14 +4640,13 @@ ${this.buildTimelineHtml(group.key)}`;
                     e.stopPropagation();
                     const sensor = btn.dataset.sensor;
                     if (sensor) {
-                        this.ignored.add(sensor);
-                        writeSpotIgnored(this.ignored);
                         const card = btn.closest('.inu-mon-spot-card');
                         if (card) card.remove();
                         const spot = this.el.querySelector('#inu-mon-spot');
                         if (spot && !spot.querySelector('.inu-mon-spot-card')) {
                             spot.innerHTML = '<div class="inu-mon-spot-empty"><i class="fa fa-plug"></i><br>Väntar på förändring...</div>';
                         }
+                        this.setIgnored(sensor, true);
                     }
                 }
                 if (act === 'kfaktor') this.openKfaktor();
@@ -4673,6 +4723,10 @@ ${this.buildTimelineHtml(group.key)}`;
 .inu-mon-card-pv { font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; transition:color .3s; margin:4px 0; }
 .inu-mon-catgrp { display:flex; flex-wrap:wrap; gap:6px; align-items:flex-start; }
 .inu-mon-catgrp-hdr { width:100%; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:0 2px 2px; opacity:.35; }
+.inu-mon-catgrp-ignored { margin-top:12px; padding-top:8px; border-top:1px dashed rgba(128,128,128,.3); }
+.inu-mon-catgrp-ignored .inu-mon-catgrp-hdr { opacity:.55; font-style:italic; }
+.inu-mon-catgrp-ignored .inu-mon-card { opacity:.45; filter:grayscale(.6); border-style:dashed !important; border-color:rgba(128,128,128,.4) !important; }
+.inu-mon-catgrp-ignored .inu-mon-card:hover { opacity:.85; filter:grayscale(0); }
 
 .inu-mon-card-fault { font-size:9px; margin-top:4px; padding:2px 6px; border-radius:3px; opacity:.4; }
 .inu-mon-card-fault.active { opacity:1; background:rgba(229,57,53,.15); color:#e53935; font-weight:600; }
@@ -6718,10 +6772,14 @@ ${this.buildTimelineHtml(group.key)}`;
             }
 
             // Build controls list: detect type from available tags (_OPM+_M → valve, _MCMD+_M → pump/fan)
+            // Skip pure sensor devices (GT/GP/GF/GM/GQ) — they report values, they're not actuators
+            const SENSOR_DEVICE_RE = /^G[TPFMQ]\d/i;
             const controls = [];
             for (const e of prefixEntries) {
                 const ct = ctrlTagSet[e.prefix];
                 if (!ct) continue;
+                const deviceName = e.prefix.split('_').pop();
+                if (SENSOR_DEVICE_RE.test(deviceName)) continue;
                 if (ct.has('OPM') && ct.has('M')) {
                     controls.push({ type: 'valve', selectKey: '003select', poid: e.poid, pageid: e.pageid, prefix: e.prefix, label: e.label, faultDesc: faultDescMap[e.prefix] || '' });
                 } else if (ct.has('MCMD') && ct.has('M')) {
