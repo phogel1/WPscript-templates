@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.5.20260518.2106
+// @version      7.5.20260518.2120
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -3626,10 +3626,11 @@ ${delSection}
     const CONTROL_CATEGORIES = ['Pumpar', 'Ventiler', 'Spjäll', 'Fläktar', 'Övrigt'];
     function controlCategory(prefix) {
         const code = prefix.split('_').pop().replace(/\d.*$/, '').toUpperCase();
+        if (/^VVX/.test(code))                        return 'Övrigt';   // heat exchanger, not a valve
         if (/^(STV|SV|VV|TV|KV|HV|MV|RV)/.test(code)) return 'Ventiler';
         if (/^(ST|SD|KS|LS|BS)/.test(code))           return 'Spjäll';
-        if (/^(FF|TF|KF|AF|FT)/.test(code))           return 'Fläktar';
-        if (/^(PV|PK|PP|CP|KP|VP|P)/.test(code))      return 'Pumpar';
+        if (/^(FF|TF|KF|AF|FT|SF)/.test(code))        return 'Fläktar';
+        if (/^(PV|PK|PP|CP|KP|VP|PLV|PLK|P)/.test(code)) return 'Pumpar';
         return 'Övrigt';
     }
 
@@ -3640,6 +3641,15 @@ ${delSection}
     }
     function writeCtrlCollapsed(set) {
         try { GM_setValue(CTRL_COLLAPSED_KEY, JSON.stringify([...set])); } catch {}
+    }
+
+    const SPOT_IGNORED_KEY = 'inu_mon_spot_ignored_v1';
+    function readSpotIgnored() {
+        try { return new Set(JSON.parse(GM_getValue(SPOT_IGNORED_KEY, '[]'))); }
+        catch { return new Set(); }
+    }
+    function writeSpotIgnored(set) {
+        try { GM_setValue(SPOT_IGNORED_KEY, JSON.stringify([...set])); } catch {}
     }
 
     function groupTagsBySensor(tags) {
@@ -3876,6 +3886,7 @@ Visa allt
             this.values = {};
             this.prevValues = {};
             this.verified = new Set();
+            this.ignored = readSpotIgnored();
             this.spotCooldown = {};
             this.closed = false;
             this.timeline = {}; // key → [{time, type, val}]
@@ -3906,6 +3917,7 @@ Visa allt
     <span class="inu-mon-prefix">${this.esc(this.prefix)}</span>
     <span class="inu-mon-clock"></span>
     <span class="inu-mon-controls">
+        <button title="K-faktor kalkylator (K)" class="inu-mon-btn" data-act="kfaktor"><i class="fa fa-calculator"></i></button>
         <button title="Spotlight vid utanför skalning (O)" class="inu-mon-btn inu-mon-btn-active" data-act="oor"><i class="fa fa-exclamation-triangle"></i></button>
         <button title="Ljud på/av (S)" class="inu-mon-btn" data-act="sound"><i class="fa fa-volume-off"></i></button>
         <button title="Pausa när dold (H)" class="inu-mon-btn${this.pauseHidden ? ' inu-mon-btn-active' : ''}" data-act="pauseHidden"><i class="fa fa-moon-o"></i></button>
@@ -4022,11 +4034,31 @@ ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa f
 
         ctrlIcon(prefix, defaultIcon) {
             const code = prefix.split('_').pop().replace(/\d.*$/, '').toUpperCase();
-            if (/^(FF|TF|KF|AF|FT)/.test(code))          return 'fa-refresh';       // fans
-            if (/^(ST|SD|KS|LS|BS)/.test(code))           return 'fa-align-justify'; // dampers
-            if (/^(STV|SV|VV|TV|KV|HV|MV|RV)/.test(code)) return 'fa-tint';         // valves
-            if (/^(PV|PK|PP|CP|KP|VP)/.test(code))        return 'fa-circle-o-notch'; // pumps
-            if (/^P$/.test(code))                          return 'fa-circle-o-notch'; // generic pump
+            // Heat exchanger (rotary/plate) — must check before VV* valves
+            if (/^VVX/.test(code))                         return 'fa-recycle';
+            // Heating coil / heating
+            if (/^(VB|VVB|VVS|VR)/.test(code))             return 'fa-fire';
+            // Cooling coil / chiller
+            if (/^(KB|KM|KA|KY)/.test(code))               return 'fa-snowflake-o';
+            // Filter
+            if (/^FI/.test(code))                          return 'fa-filter';
+            // Fans (supply / exhaust / kitchen / general)
+            if (/^(FF|TF|KF|AF|FT|SF)/.test(code))         return 'fa-refresh';
+            // Dampers / shutters
+            if (/^(ST|SD|KS|LS|BS)/.test(code))            return 'fa-align-justify';
+            // Valves (control / shutoff)
+            if (/^(STV|SV|VV|TV|KV|HV|MV|RV)/.test(code))  return 'fa-tint';
+            // Pumps
+            if (/^(PV|PK|PP|CP|KP|VP|PLV|PLK)/.test(code)) return 'fa-circle-o-notch';
+            if (/^P$/.test(code))                          return 'fa-circle-o-notch';
+            // Sensors with setpoint / control
+            if (/^GT/.test(code))                          return 'fa-thermometer-half';
+            if (/^GP/.test(code))                          return 'fa-tachometer';
+            if (/^GF/.test(code))                          return 'fa-exchange';
+            if (/^GM/.test(code))                          return 'fa-tint';
+            if (/^GQ/.test(code))                          return 'fa-leaf';
+            // Electrical / energy
+            if (/^(QM|WM|EM)/.test(code))                  return 'fa-bolt';
             return defaultIcon;
         }
 
@@ -4334,7 +4366,7 @@ ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa f
                 const shouldSpot = (this.spotOOR && hasOOR) || faultChanged ||
                     (pvPrev !== undefined && this.isSignificant(pv, pvPrev, pvVal) && (this.spotOOR || !hasOOR));
 
-                if (shouldSpot && !this.spotCooldown[g.key] && !g.noSpotlight) {
+                if (shouldSpot && !this.spotCooldown[g.key] && !g.noSpotlight && !this.ignored.has(g.key)) {
                     card.classList.add('changed');
                     setTimeout(() => card.classList.remove('changed'), 3000);
                     this.spotCooldown[g.key] = true;
@@ -4444,6 +4476,7 @@ ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa f
             const faultLabel = this.faultDescMap[group.key] || 'Driftfel';
             const faultNote = faultOn ? `<div class="inu-mon-spot-fault"><i class="fa fa-exclamation-circle"></i> ${this.esc(faultLabel)}</div>` : '';
             card.innerHTML = `
+<button class="inu-mon-spot-ignore" data-act="ignore-spot" data-sensor="${this.esc(group.key)}" title="Ignorera denna givare för utlysning"><i class="fa fa-eye-slash"></i></button>
 <div class="inu-mon-spot-sensor">${this.esc(this.displayName(group.key))}</div>
 <div class="inu-mon-spot-val">${eNew}</div>
 ${faultNote}
@@ -4474,6 +4507,45 @@ ${this.buildTimelineHtml(group.key)}`;
             container.querySelectorAll('.inu-mon-spot-fault, .inu-mon-spot-oor').forEach(l => {
                 l.style.fontSize = Math.max(10, Math.round(valSize * 0.14)) + 'px';
             });
+        }
+
+        openKfaktor() {
+            // Prevent duplicate
+            this.el.querySelector('.inu-mon-kf-modal')?.remove();
+            const modal = document.createElement('div');
+            modal.className = 'inu-mon-kf-modal';
+            modal.innerHTML = `
+<div class="inu-mon-kf-box">
+  <button class="inu-mon-kf-close" data-act="kfaktor-close" title="Stäng"><i class="fa fa-times"></i></button>
+  <div class="inu-mon-kf-title">K-faktor kalkylator</div>
+  <div class="inu-mon-kf-formula">Y = (1 / X) × 1000</div>
+  <input type="number" class="inu-mon-kf-input" placeholder="X" step="any" autocomplete="off">
+  <div class="inu-mon-kf-result" data-empty="1">–</div>
+</div>`;
+            this.el.appendChild(modal);
+            const input  = modal.querySelector('.inu-mon-kf-input');
+            const result = modal.querySelector('.inu-mon-kf-result');
+            const update = () => {
+                const raw = input.value.replace(',', '.').trim();
+                if (!raw) { result.textContent = '–'; result.dataset.empty = '1'; return; }
+                const x = parseFloat(raw);
+                if (!isFinite(x) || x === 0) { result.textContent = '—'; result.dataset.empty = '1'; return; }
+                const y = (1 / x) * 1000;
+                // Trim trailing zeros from a fixed-4 display
+                result.textContent = y.toFixed(4).replace(/\.?0+$/, '');
+                delete result.dataset.empty;
+            };
+            input.addEventListener('input', update);
+            modal.addEventListener('click', e => {
+                if (e.target.closest('[data-act="kfaktor-close"]') || e.target === modal) {
+                    modal.remove();
+                }
+            });
+            // Esc inside the input closes the popup, not the whole monitor
+            input.addEventListener('keydown', e => {
+                if (e.key === 'Escape') { e.stopPropagation(); modal.remove(); }
+            });
+            setTimeout(() => input.focus(), 0);
         }
 
         beep() {
@@ -4513,6 +4585,21 @@ ${this.buildTimelineHtml(group.key)}`;
                     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
                     else this.el.requestFullscreen().catch(() => {});
                 }
+                if (act === 'ignore-spot') {
+                    e.stopPropagation();
+                    const sensor = btn.dataset.sensor;
+                    if (sensor) {
+                        this.ignored.add(sensor);
+                        writeSpotIgnored(this.ignored);
+                        const card = btn.closest('.inu-mon-spot-card');
+                        if (card) card.remove();
+                        const spot = this.el.querySelector('#inu-mon-spot');
+                        if (spot && !spot.querySelector('.inu-mon-spot-card')) {
+                            spot.innerHTML = '<div class="inu-mon-spot-empty"><i class="fa fa-plug"></i><br>Väntar på förändring...</div>';
+                        }
+                    }
+                }
+                if (act === 'kfaktor') this.openKfaktor();
             });
         }
 
@@ -4530,6 +4617,7 @@ ${this.buildTimelineHtml(group.key)}`;
                     if (b) b.classList.toggle('inu-mon-btn-active', this.pauseHidden);
                 }
                 if (e.key.toLowerCase() === 'c') { const s = this.el.querySelector('#inu-mon-spot'); if (s) s.innerHTML = '<div class="inu-mon-spot-empty"><i class="fa fa-plug"></i><br>Väntar på förändring...</div>'; }
+                if (e.key.toLowerCase() === 'k' && !e.target.matches('input,textarea,select')) { e.preventDefault(); this.openKfaktor(); }
             };
             document.addEventListener('keydown', this._keyHandler);
         }
@@ -4589,7 +4677,12 @@ ${this.buildTimelineHtml(group.key)}`;
 .inu-mon-card-fault { font-size:9px; margin-top:4px; padding:2px 6px; border-radius:3px; opacity:.4; }
 .inu-mon-card-fault.active { opacity:1; background:rgba(229,57,53,.15); color:#e53935; font-weight:600; }
 .inu-mon-spot-empty { font-size:16px; opacity:.25; text-align:center; line-height:1.8; width:100%; }
-.inu-mon-spot-card { flex:1; min-width:0; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; border:3px solid transparent; border-radius:12px; padding:8px 16px; transition:border-color 1s, flex .3s, opacity .3s; overflow:hidden; }
+.inu-mon-spot-card { flex:1; min-width:0; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; border:3px solid transparent; border-radius:12px; padding:8px 16px; transition:border-color 1s, flex .3s, opacity .3s; overflow:hidden; position:relative; }
+.inu-mon-spot-ignore { position:absolute; top:6px; right:6px; width:26px; height:26px; padding:0; border:none; background:transparent; cursor:pointer; opacity:.35; border-radius:5px; font-size:13px; line-height:1; transition:opacity .15s, background .15s; }
+.inu-mon-spot-ignore:hover { opacity:.9; background:rgba(0,0,0,.1); }
+.dark  .inu-mon-spot-ignore { color:#cdd6f4; }
+.light .inu-mon-spot-ignore { color:#333; }
+.dark  .inu-mon-spot-ignore:hover { background:rgba(255,255,255,.12); }
 .inu-mon-spot-card.secondary { flex:0.6; opacity:.6; }
 .inu-mon-spot-card.flash { border-color:#fdd835; }
 .inu-mon-spot-card.oor { border-color:#e53935; }
@@ -4627,7 +4720,8 @@ ${this.buildTimelineHtml(group.key)}`;
 .inu-mon-ctrl-device { display:flex; flex-direction:column; gap:4px; padding:8px; border-radius:8px; min-width:0; }
 .dark  .inu-mon-ctrl-device { background:#16213e; }
 .light .inu-mon-ctrl-device { background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.1); }
-.inu-mon-ctrl-name { font-size:11px; font-weight:700; opacity:.7; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.inu-mon-ctrl-name { font-size:14px; font-weight:700; opacity:.9; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.inu-mon-ctrl-name i.fa { font-size:13px; margin-right:4px; opacity:.85; }
 .inu-mon-ctrl-btn { width:100%; padding:5px 6px; height:auto; min-height:30px; font-size:12px; font-weight:700; border:2px solid transparent; border-radius:6px; cursor:pointer; transition:background .1s, border-color .1s; }
 .dark  .inu-mon-ctrl-btn { background:rgba(255,255,255,.08); color:#e0e0e0; }
 .light .inu-mon-ctrl-btn { background:rgba(0,0,0,.07); color:#333; }
@@ -4650,6 +4744,25 @@ ${this.buildTimelineHtml(group.key)}`;
 .inu-mon-card-pv.digital-on  { color:#4caf50; font-weight:700; }
 .inu-mon-card-pv.digital-off { opacity:.5; }
 .inu-mon-ctrl-fault-ind { font-size:11px; font-weight:700; color:#e53935; display:flex; align-items:center; gap:4px; }
+/* K-faktor calculator modal */
+.inu-mon-kf-modal { position:absolute; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:50; }
+.inu-mon-kf-box { position:relative; min-width:380px; max-width:90vw; padding:36px 40px 32px; border-radius:14px; box-shadow:0 12px 48px rgba(0,0,0,.5); display:flex; flex-direction:column; align-items:center; gap:18px; }
+.dark  .inu-mon-kf-box { background:#1a2440; color:#e0e0e0; }
+.light .inu-mon-kf-box { background:#fff; color:#222; }
+.inu-mon-kf-close { position:absolute; top:10px; right:10px; width:32px; height:32px; padding:0; border:none; background:transparent; cursor:pointer; opacity:.5; border-radius:6px; font-size:16px; }
+.inu-mon-kf-close:hover { opacity:1; background:rgba(0,0,0,.08); }
+.dark  .inu-mon-kf-close { color:#cdd6f4; }
+.dark  .inu-mon-kf-close:hover { background:rgba(255,255,255,.12); }
+.inu-mon-kf-title { font-size:18px; font-weight:700; letter-spacing:.3px; }
+.inu-mon-kf-formula { font-size:14px; opacity:.6; font-family:monospace; }
+.inu-mon-kf-input { width:100%; padding:18px 20px; font-size:36px; font-weight:700; text-align:center; border:2px solid transparent; border-radius:10px; outline:none; font-variant-numeric:tabular-nums; transition:border-color .15s; }
+.dark  .inu-mon-kf-input { background:#0f1830; color:#fff; border-color:#2d5a9e; }
+.light .inu-mon-kf-input { background:#f5f7ff; color:#222; border-color:#cdd6f4; }
+.inu-mon-kf-input:focus { border-color:#5b6abf; }
+.inu-mon-kf-result { width:100%; padding:14px 20px; font-size:42px; font-weight:800; text-align:center; border-radius:10px; font-variant-numeric:tabular-nums; min-height:60px; line-height:1; display:flex; align-items:center; justify-content:center; }
+.dark  .inu-mon-kf-result { background:rgba(45,90,158,.25); color:#4caf50; }
+.light .inu-mon-kf-result { background:rgba(45,90,158,.08); color:#1b5e20; }
+.inu-mon-kf-result[data-empty="1"] { opacity:.35; }
 `;
             document.head.appendChild(s);
         }
