@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.4.20260518.2042
+// @version      7.5.20260518.2106
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -3620,6 +3620,28 @@ ${delSection}
         return (m && SENSOR_TYPES[m[1].toUpperCase()]) || 'Övrigt';
     }
 
+    // Equipment categories for monitor control-bar grouping.
+    // Order = display order. Same prefix patterns as ctrlIcon() so the long
+    // ones (STV) match before the short ones (ST).
+    const CONTROL_CATEGORIES = ['Pumpar', 'Ventiler', 'Spjäll', 'Fläktar', 'Övrigt'];
+    function controlCategory(prefix) {
+        const code = prefix.split('_').pop().replace(/\d.*$/, '').toUpperCase();
+        if (/^(STV|SV|VV|TV|KV|HV|MV|RV)/.test(code)) return 'Ventiler';
+        if (/^(ST|SD|KS|LS|BS)/.test(code))           return 'Spjäll';
+        if (/^(FF|TF|KF|AF|FT)/.test(code))           return 'Fläktar';
+        if (/^(PV|PK|PP|CP|KP|VP|P)/.test(code))      return 'Pumpar';
+        return 'Övrigt';
+    }
+
+    const CTRL_COLLAPSED_KEY = 'inu_mon_ctrl_collapsed_v1';
+    function readCtrlCollapsed() {
+        try { return new Set(JSON.parse(GM_getValue(CTRL_COLLAPSED_KEY, '[]'))); }
+        catch { return new Set(); }
+    }
+    function writeCtrlCollapsed(set) {
+        try { GM_setValue(CTRL_COLLAPSED_KEY, JSON.stringify([...set])); } catch {}
+    }
+
     function groupTagsBySensor(tags) {
         // Tags are pre-filtered to end with _PV, _FAULT, or _V, so always split on last underscore
         const groups = {};
@@ -4011,7 +4033,8 @@ ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa f
         renderCtrlBar() {
             const bar = this.el.querySelector('#inu-mon-ctrl-bar');
             if (!bar) return;
-            bar.innerHTML = this.controls.map(c => {
+
+            const deviceCard = (c) => {
                 const p    = this.esc(c.prefix);
                 const icon = this.ctrlIcon(c.prefix, c.type === 'valve' ? 'fa-sliders' : 'fa-circle-o-notch');
                 if (c.type === 'valve') {
@@ -4026,8 +4049,8 @@ ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa f
     <span class="inu-mon-ctrl-val">0 %</span>
   </div>
 </div>`;
-                } else {
-                    return `<div class="inu-mon-ctrl-device" data-prefix="${p}" data-type="pump">
+                }
+                return `<div class="inu-mon-ctrl-device" data-prefix="${p}" data-type="pump">
   <div class="inu-mon-ctrl-name"><i class="fa ${icon}"></i> ${this.esc(c.label)}</div>
   <div class="inu-mon-ctrl-running" data-prefix="${p}"><i class="fa fa-circle"></i> <span>–</span></div>
   <div class="inu-mon-ctrl-fault-ind" data-prefix="${p}" style="display:none"><i class="fa fa-exclamation-circle"></i> ${this.esc(c.faultDesc || 'Driftfel')}</div>
@@ -4035,8 +4058,45 @@ ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa f
   <button class="inu-mon-ctrl-btn" data-ctrl="pump-off"  data-prefix="${p}">Från</button>
   <button class="inu-mon-ctrl-btn" data-ctrl="pump-on"   data-prefix="${p}">Till</button>
 </div>`;
-                }
-            }).join('');
+            };
+
+            const byCat = {};
+            for (const c of this.controls) {
+                const cat = controlCategory(c.prefix);
+                (byCat[cat] = byCat[cat] || []).push(c);
+            }
+            const collapsed = readCtrlCollapsed();
+            bar.innerHTML = CONTROL_CATEGORIES
+                .filter(cat => byCat[cat] && byCat[cat].length)
+                .map(cat => {
+                    const list = byCat[cat].slice().sort((a, b) => a.label.localeCompare(b.label));
+                    const isCollapsed = collapsed.has(cat);
+                    const catEsc = this.esc(cat);
+                    return `<div class="inu-mon-ctrl-group${isCollapsed ? ' collapsed' : ''}" data-cat="${catEsc}">
+  <button class="inu-mon-ctrl-group-hdr" data-cat="${catEsc}" aria-expanded="${isCollapsed ? 'false' : 'true'}">
+    <i class="fa fa-chevron-down inu-mon-ctrl-group-chev"></i>
+    <span class="inu-mon-ctrl-group-title">${catEsc}</span>
+    <span class="inu-mon-ctrl-group-count">${list.length}</span>
+  </button>
+  <div class="inu-mon-ctrl-grid">${list.map(deviceCard).join('')}</div>
+</div>`;
+                })
+                .join('');
+
+            // Collapse / expand on header click (delegated, no rebuild needed)
+            bar.addEventListener('click', e => {
+                const hdr = e.target.closest('.inu-mon-ctrl-group-hdr');
+                if (!hdr) return;
+                const group = hdr.closest('.inu-mon-ctrl-group');
+                if (!group) return;
+                const cat = group.dataset.cat;
+                const nowCollapsed = !group.classList.contains('collapsed');
+                group.classList.toggle('collapsed', nowCollapsed);
+                hdr.setAttribute('aria-expanded', nowCollapsed ? 'false' : 'true');
+                const set = readCtrlCollapsed();
+                if (nowCollapsed) set.add(cat); else set.delete(cat);
+                writeCtrlCollapsed(set);
+            });
 
             // Optimistic button clicks
             bar.addEventListener('click', e => {
@@ -4546,15 +4606,29 @@ ${this.buildTimelineHtml(group.key)}`;
 .inu-tl-ev.nok .inu-tl-box { background:rgba(229,57,53,.15); color:#e53935; border-color:#e53935; }
 .inu-tl-ev.ok .inu-tl-box { background:rgba(76,175,80,.15); color:#4caf50; border-color:#4caf50; }
 .inu-tl-arrow { display:flex; align-items:flex-end; padding:0 4px 10px; opacity:.25; font-size:14px; }
-/* Control panel — right-side vertical */
-.inu-mon-ctrl-bar { display:flex; flex-direction:column; gap:10px; padding:12px 10px; width:160px; flex-shrink:0; overflow-y:auto; }
+/* Control panel — right-side vertical, grouped by device type, 2-col grid per group */
+.inu-mon-ctrl-bar { display:flex; flex-direction:column; gap:12px; padding:12px 10px; width:290px; flex-shrink:0; overflow-y:auto; }
 .dark  .inu-mon-ctrl-bar { background:rgba(0,0,0,.2); border-left:1px solid rgba(255,255,255,.07); }
 .light .inu-mon-ctrl-bar { background:rgba(0,0,0,.04); border-left:1px solid rgba(0,0,0,.1); }
-.inu-mon-ctrl-device { display:flex; flex-direction:column; gap:5px; padding:10px; border-radius:10px; }
+.inu-mon-ctrl-group { display:flex; flex-direction:column; gap:6px; }
+.inu-mon-ctrl-group-hdr { display:flex; align-items:center; gap:8px; width:100%; padding:6px 10px; border:none; border-radius:6px; font-size:12px; font-weight:700; text-align:left; cursor:pointer; text-transform:uppercase; letter-spacing:.5px; }
+.dark  .inu-mon-ctrl-group-hdr { background:rgba(255,255,255,.05); color:#cdd6f4; }
+.light .inu-mon-ctrl-group-hdr { background:rgba(0,0,0,.05); color:#444; }
+.dark  .inu-mon-ctrl-group-hdr:hover { background:rgba(255,255,255,.09); }
+.light .inu-mon-ctrl-group-hdr:hover { background:rgba(0,0,0,.09); }
+.inu-mon-ctrl-group-chev { font-size:11px; opacity:.7; transition:transform .15s; }
+.inu-mon-ctrl-group.collapsed .inu-mon-ctrl-group-chev { transform:rotate(-90deg); }
+.inu-mon-ctrl-group-title { flex:1; }
+.inu-mon-ctrl-group-count { font-size:10px; font-weight:700; padding:1px 7px; border-radius:9px; opacity:.7; }
+.dark  .inu-mon-ctrl-group-count { background:rgba(255,255,255,.1); }
+.light .inu-mon-ctrl-group-count { background:rgba(0,0,0,.1); }
+.inu-mon-ctrl-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.inu-mon-ctrl-group.collapsed .inu-mon-ctrl-grid { display:none; }
+.inu-mon-ctrl-device { display:flex; flex-direction:column; gap:4px; padding:8px; border-radius:8px; min-width:0; }
 .dark  .inu-mon-ctrl-device { background:#16213e; }
 .light .inu-mon-ctrl-device { background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.1); }
-.inu-mon-ctrl-name { font-size:12px; font-weight:700; opacity:.7; margin-bottom:2px; }
-.inu-mon-ctrl-btn { width:100%; padding:0; height:40px; font-size:13px; font-weight:700; border:2px solid transparent; border-radius:7px; cursor:pointer; transition:background .1s, border-color .1s; }
+.inu-mon-ctrl-name { font-size:11px; font-weight:700; opacity:.7; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.inu-mon-ctrl-btn { width:100%; padding:5px 6px; height:auto; min-height:30px; font-size:12px; font-weight:700; border:2px solid transparent; border-radius:6px; cursor:pointer; transition:background .1s, border-color .1s; }
 .dark  .inu-mon-ctrl-btn { background:rgba(255,255,255,.08); color:#e0e0e0; }
 .light .inu-mon-ctrl-btn { background:rgba(0,0,0,.07); color:#333; }
 .dark  .inu-mon-ctrl-btn:hover { background:rgba(255,255,255,.14); }
