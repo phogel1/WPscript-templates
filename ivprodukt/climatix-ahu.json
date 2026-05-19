@@ -132,10 +132,10 @@
     "vvx_al3":      { "name": "{prefix}_VVX_AL3",    "device": "{prefix}", "address": "10218",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "VVX varning",                       "alarmoptions": "", "trendoptions": "" },
     "vvx_al4":      { "name": "{prefix}_VVX_AL4",    "device": "{prefix}", "address": "10219",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "VVX kommunikationslarm",            "alarmoptions": "", "trendoptions": "" },
 
-    "cp1_v":        { "name": "{prefix}_CP1_V",      "device": "{prefix}", "address": "30041",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "CP1 Driftindikering",               "alarmoptions": "", "trendoptions": "es:0" },
-    "cp1_al":       { "name": "{prefix}_CP1_AL",     "device": "{prefix}", "address": "10045",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "CP1 Driftfel",                      "alarmoptions": "", "trendoptions": "" },
-    "cp2_v":        { "name": "{prefix}_CP2_V",      "device": "{prefix}", "address": "30034",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "CP2 Driftindikering",               "alarmoptions": "", "trendoptions": "es:0" },
-    "cp2_al":       { "name": "{prefix}_CP2_AL",     "device": "{prefix}", "address": "10038",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "CP2 Driftfel",                      "alarmoptions": "", "trendoptions": "" },
+    "cp1_v":        { "name": "{prefix}_CP1_V",      "device": "{prefix}", "address": "30041",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "CP1 Cirkulationspump värme drift",  "alarmoptions": "", "trendoptions": "es:0" },
+    "cp1_al":       { "name": "{prefix}_CP1_AL",     "device": "{prefix}", "address": "10045",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "CP1 Cirkulationspump värme driftfel","alarmoptions": "", "trendoptions": "" },
+    "cp2_v":        { "name": "{prefix}_CP2_V",      "device": "{prefix}", "address": "30034",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "CP2 Cirkulationspump kyla drift",   "alarmoptions": "", "trendoptions": "es:0" },
+    "cp2_al":       { "name": "{prefix}_CP2_AL",     "device": "{prefix}", "address": "10038",    "datatype": "DIGITAL", "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "CP2 Cirkulationspump kyla driftfel","alarmoptions": "", "trendoptions": "" },
 
     "cr_v":         { "name": "{prefix}_CR_V",       "device": "{prefix}", "address": "30118",    "datatype": "INT",     "rawmin": 0,    "rawmax": 1,     "engmin": 0,    "engmax": 1,     "unit": "",        "format": "0",    "description": "Kylåtervinning aktiv",              "alarmoptions": "", "trendoptions": "es:0" },
 
@@ -243,7 +243,7 @@
       "default": "water",
       "options": [
         { "id": "none",     "label": "Ingen",       "tags": [] },
-        { "id": "water",    "label": "Vattenvärme", "tags": ["sv1_op"] },
+        { "id": "water",    "label": "Vattenvärme", "tags": ["sv1_op", "cp1_v", "cp1_al"] },
         { "id": "electric", "label": "Elvärme",     "tags": [] }
       ]
     },
@@ -254,19 +254,8 @@
       "default": "none",
       "options": [
         { "id": "none",     "label": "Ingen",      "tags": [] },
-        { "id": "water",    "label": "Vattenkyla", "tags": ["sv2_op", "cr_v"] },
-        { "id": "dx",       "label": "DX-kyla",    "tags": ["cr_v"] }
-      ]
-    },
-    {
-      "id": "compressors",
-      "type": "dropdown",
-      "label": "Kompressorer",
-      "default": "0",
-      "options": [
-        { "id": "0", "label": "0 (ingen DX)", "tags": [] },
-        { "id": "1", "label": "1 kompressor", "tags": ["cp1_v", "cp1_al"] },
-        { "id": "2", "label": "2 kompressorer","tags": ["cp1_v", "cp1_al", "cp2_v", "cp2_al"] }
+        { "id": "water",    "label": "Vattenkyla", "tags": ["sv2_op", "cp2_v", "cp2_al", "cr_v"] },
+        { "id": "dx",       "label": "DX-kyla",    "tags": ["cp2_v", "cp2_al", "cr_v"] }
       ]
     },
     {

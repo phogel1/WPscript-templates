@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         INU WebPort-Plus
 // @namespace    http://tampermonkey.net/
-// @version      7.5.20260518.2210
+// @version      7.6.20260519.1349
 // @description  Enhanced UI for Kiona WebPort
 // @match        *://*/*
 // @grant        GM_setValue
@@ -3871,16 +3871,19 @@ Visa allt
             this.faultDescMap = faultDescMap || {};
             this.ctrlLocks = {}; // prefix → timestamp until which poll updates are suppressed
             this.spotOOR = true; // spotlight on out-of-range values (togglable)
-            // Raw tag names for control polling (_M, _OPM/_MCMD)
+            // Raw tag names for control polling
             this.ctrlTagNames = [];
             for (const c of this.controls) {
-                this.ctrlTagNames.push(c.prefix + '_M');
+                if (c.type === 'valve' || c.type === 'pump') this.ctrlTagNames.push(c.prefix + '_M');
                 if (c.type === 'valve') this.ctrlTagNames.push(c.prefix + '_OPM');
-                if (c.type === 'pump') {
-                    this.ctrlTagNames.push(c.prefix + '_MCMD');
-                    this.ctrlTagNames.push(c.prefix + '_V');
-                    this.ctrlTagNames.push(c.prefix + '_FAULT');
-                }
+                if (c.type === 'pump') this.ctrlTagNames.push(c.prefix + '_MCMD');
+                const h = c.has || {};
+                if (h.OP)    this.ctrlTagNames.push(c.prefix + '_OP');
+                if (h.CMD)   this.ctrlTagNames.push(c.prefix + '_CMD');
+                if (h.V)     this.ctrlTagNames.push(c.prefix + '_V');
+                if (h.V1)    this.ctrlTagNames.push(c.prefix + '_V1');
+                if (h.V0)    this.ctrlTagNames.push(c.prefix + '_V0');
+                if (h.FAULT) this.ctrlTagNames.push(c.prefix + '_FAULT');
             }
             this.groups = groupTagsBySensor(tags);
             this.values = {};
@@ -4145,10 +4148,20 @@ ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa f
 
             const deviceCard = (c) => {
                 const p    = this.esc(c.prefix);
-                const icon = this.ctrlIcon(c.prefix, c.type === 'valve' ? 'fa-sliders' : 'fa-circle-o-notch');
+                const h    = c.has || {};
+                const defaultIcon = c.type === 'valve' ? 'fa-sliders' : 'fa-circle-o-notch';
+                const icon = this.ctrlIcon(c.prefix, defaultIcon);
+                // Common status rows: _OP readout, _V/_V1/_V0 running/open/closed, _CMD manöver, _FAULT
+                const statusRows = [
+                    (h.OP)    ? `<div class="inu-mon-ctrl-op" data-prefix="${p}"><i class="fa fa-tachometer"></i> <span>– %</span></div>` : '',
+                    (h.V || h.V1 || h.V0) ? `<div class="inu-mon-ctrl-running" data-prefix="${p}"><i class="fa fa-circle"></i> <span>–</span></div>` : '',
+                    (h.CMD)   ? `<div class="inu-mon-ctrl-cmd" data-prefix="${p}"><i class="fa fa-toggle-off"></i> Manöver: <span>–</span></div>` : '',
+                    (h.FAULT) ? `<div class="inu-mon-ctrl-fault-ind" data-prefix="${p}" style="display:none"><i class="fa fa-exclamation-circle"></i> ${this.esc(c.faultDesc || 'Driftfel')}</div>` : '',
+                ].filter(Boolean).join('\n  ');
                 if (c.type === 'valve') {
                     return `<div class="inu-mon-ctrl-device" data-prefix="${p}" data-type="valve">
   <div class="inu-mon-ctrl-name"><i class="fa ${icon}"></i> ${this.esc(c.label)}</div>
+  ${statusRows}
   <button class="inu-mon-ctrl-btn" data-ctrl="valve-auto"   data-prefix="${p}">Auto</button>
   <button class="inu-mon-ctrl-btn" data-ctrl="valve-manual" data-prefix="${p}">Manuell</button>
   <div class="inu-mon-ctrl-opm" data-prefix="${p}" style="display:none">
@@ -4159,13 +4172,19 @@ ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa f
   </div>
 </div>`;
                 }
-                return `<div class="inu-mon-ctrl-device" data-prefix="${p}" data-type="pump">
+                if (c.type === 'pump') {
+                    return `<div class="inu-mon-ctrl-device" data-prefix="${p}" data-type="pump">
   <div class="inu-mon-ctrl-name"><i class="fa ${icon}"></i> ${this.esc(c.label)}</div>
-  <div class="inu-mon-ctrl-running" data-prefix="${p}"><i class="fa fa-circle"></i> <span>–</span></div>
-  <div class="inu-mon-ctrl-fault-ind" data-prefix="${p}" style="display:none"><i class="fa fa-exclamation-circle"></i> ${this.esc(c.faultDesc || 'Driftfel')}</div>
+  ${statusRows}
   <button class="inu-mon-ctrl-btn" data-ctrl="pump-auto" data-prefix="${p}">Auto</button>
   <button class="inu-mon-ctrl-btn" data-ctrl="pump-off"  data-prefix="${p}">Från</button>
   <button class="inu-mon-ctrl-btn" data-ctrl="pump-on"   data-prefix="${p}">Till</button>
+</div>`;
+                }
+                // Read-only status card (no manual control tags available)
+                return `<div class="inu-mon-ctrl-device" data-prefix="${p}" data-type="status">
+  <div class="inu-mon-ctrl-name"><i class="fa ${icon}"></i> ${this.esc(c.label)}</div>
+  ${statusRows}
 </div>`;
             };
 
@@ -4298,7 +4317,48 @@ ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa f
             for (const c of this.controls) {
                 if (this.ctrlLocks[c.prefix] && now < this.ctrlLocks[c.prefix]) continue;
                 delete this.ctrlLocks[c.prefix];
+                const h = c.has || {};
                 const isManual = (values[c.prefix + '_M'] ?? 0) == 1;
+
+                // --- Common status rows for all control types ---
+                // _OP readout
+                const opEl = bar.querySelector(`.inu-mon-ctrl-op[data-prefix="${c.prefix}"]`);
+                if (opEl) {
+                    const opVal = values[c.prefix + '_OP'];
+                    opEl.querySelector('span').textContent = opVal != null ? parseFloat(opVal).toFixed(0) + ' %' : '– %';
+                }
+                // _V / _V1 / _V0 running/open/closed
+                const runEl = bar.querySelector(`.inu-mon-ctrl-running[data-prefix="${c.prefix}"]`);
+                if (runEl) {
+                    let isRunning = false, label = '–';
+                    if (h.V1 || h.V0) {
+                        const v1 = (values[c.prefix + '_V1'] ?? 0) == 1;
+                        const v0 = (values[c.prefix + '_V0'] ?? 0) == 1;
+                        isRunning = v1;
+                        label = v1 ? 'Öppen' : v0 ? 'Stängd' : 'Okänd';
+                    } else if (h.V) {
+                        isRunning = (values[c.prefix + '_V'] ?? 0) == 1;
+                        label = isRunning ? 'Drift' : 'Stoppad';
+                    }
+                    runEl.querySelector('span').textContent = label;
+                    runEl.classList.toggle('running', isRunning);
+                }
+                // _CMD manöver
+                const cmdEl = bar.querySelector(`.inu-mon-ctrl-cmd[data-prefix="${c.prefix}"]`);
+                if (cmdEl) {
+                    const cmdOn = (values[c.prefix + '_CMD'] ?? 0) == 1;
+                    cmdEl.querySelector('span').textContent = cmdOn ? 'Till' : 'Från';
+                    cmdEl.querySelector('i').className = 'fa ' + (cmdOn ? 'fa-toggle-on' : 'fa-toggle-off');
+                    cmdEl.classList.toggle('cmd-on', cmdOn);
+                }
+                // _FAULT
+                const faultEl = bar.querySelector(`.inu-mon-ctrl-fault-ind[data-prefix="${c.prefix}"]`);
+                if (faultEl) {
+                    const hasFault = (values[c.prefix + '_FAULT'] ?? 0) == 1;
+                    faultEl.style.display = hasFault ? '' : 'none';
+                }
+
+                // --- Type-specific button state ---
                 if (c.type === 'valve') {
                     bar.querySelector(`[data-ctrl="valve-auto"][data-prefix="${c.prefix}"]`)?.classList.toggle('active', !isManual);
                     bar.querySelector(`[data-ctrl="valve-manual"][data-prefix="${c.prefix}"]`)?.classList.toggle('active', isManual);
@@ -4313,23 +4373,13 @@ ${fault ? `<div class="inu-mon-card-fault" data-tag="${fault.id}"><i class="fa f
                             if (valEl) valEl.textContent = opm.toFixed(0) + ' %';
                         }
                     }
-                } else {
+                } else if (c.type === 'pump') {
                     const isOn = (values[c.prefix + '_MCMD'] ?? 0) == 1;
                     bar.querySelector(`[data-ctrl="pump-auto"][data-prefix="${c.prefix}"]`)?.classList.toggle('active', !isManual);
                     bar.querySelector(`[data-ctrl="pump-off"][data-prefix="${c.prefix}"]`)?.classList.toggle('active', isManual && !isOn);
                     bar.querySelector(`[data-ctrl="pump-on"][data-prefix="${c.prefix}"]`)?.classList.toggle('active', isManual && isOn);
                     bar.querySelector(`[data-ctrl="pump-off"][data-prefix="${c.prefix}"]`)?.classList.toggle('pump-off-active', isManual && !isOn);
                     bar.querySelector(`[data-ctrl="pump-on"][data-prefix="${c.prefix}"]`)?.classList.toggle('pump-on-active', isManual && isOn);
-                    // Driftindikering
-                    const isRunning = (values[c.prefix + '_V'] ?? 0) == 1;
-                    const hasFault  = (values[c.prefix + '_FAULT'] ?? 0) == 1;
-                    const runEl = bar.querySelector(`.inu-mon-ctrl-running[data-prefix="${c.prefix}"]`);
-                    if (runEl) {
-                        runEl.querySelector('span').textContent = isRunning ? 'Drift' : 'Stoppad';
-                        runEl.classList.toggle('running', isRunning);
-                    }
-                    const faultEl = bar.querySelector(`.inu-mon-ctrl-fault-ind[data-prefix="${c.prefix}"]`);
-                    if (faultEl) faultEl.style.display = hasFault ? '' : 'none';
                 }
             }
         }
@@ -4839,6 +4889,10 @@ ${this.buildTimelineHtml(group.key)}`;
 .inu-mon-ctrl-running.running { opacity:1; color:#4caf50; }
 .inu-mon-card-pv.digital-on  { color:#4caf50; font-weight:700; }
 .inu-mon-card-pv.digital-off { opacity:.5; }
+.inu-mon-ctrl-op { font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px; opacity:.85; font-variant-numeric:tabular-nums; }
+.inu-mon-ctrl-op i { font-size:10px; opacity:.6; }
+.inu-mon-ctrl-cmd { font-size:11px; font-weight:600; opacity:.6; display:flex; align-items:center; gap:5px; }
+.inu-mon-ctrl-cmd.cmd-on { opacity:1; color:#4caf50; }
 .inu-mon-ctrl-fault-ind { font-size:11px; font-weight:700; color:#e53935; display:flex; align-items:center; gap:4px; }
 /* K-faktor calculator modal */
 .inu-mon-kf-modal { position:absolute; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:50; }
@@ -6784,13 +6838,13 @@ ${this.buildTimelineHtml(group.key)}`;
                     const fp = prefixes.find(p => name === p + '_FAULT');
                     if (fp) { const desc = decode(row['10'] || '').trim(); if (desc) faultDescMap[fp] = desc; }
                 }
-                // Detect control capabilities: _M, _OPM, _MCMD
-                const ctrlSuffix = ['_M','_OPM','_MCMD'].find(s => name.endsWith(s));
+                // Detect control capabilities: _M, _OPM, _MCMD, _OP, _CMD, _V, _V1, _V0, _FAULT
+                const ctrlSuffix = ['_M','_OPM','_MCMD','_OP','_CMD','_FAULT','_V1','_V0','_V'].find(s => name.endsWith(s));
                 if (ctrlSuffix) {
                     const cp = prefixes.find(p => name === p + ctrlSuffix);
                     if (cp) {
                         if (!ctrlTagSet[cp]) ctrlTagSet[cp] = new Set();
-                        ctrlTagSet[cp].add(ctrlSuffix.slice(1)); // 'M','OPM','MCMD'
+                        ctrlTagSet[cp].add(ctrlSuffix.slice(1));
                     }
                 }
             }
@@ -6813,8 +6867,9 @@ ${this.buildTimelineHtml(group.key)}`;
                 if (match && labelMap[match]) sensorLabelMap[g.key] = labelMap[match];
             }
 
-            // Build controls list: detect type from available tags (_OPM+_M → valve, _MCMD+_M → pump/fan)
-            // Skip pure sensor devices (GT/GP/GF/GM/GQ) — they report values, they're not actuators
+            // Build controls list: detect type from available tags
+            // _OPM+_M → valve (manual override), _MCMD+_M → pump/fan (manual override)
+            // Actuator prefixes with _OP/_V/_CMD but no _M → read-only status display
             const SENSOR_DEVICE_RE = /^G[TPFMQ]\d/i;
             const controls = [];
             for (const e of prefixEntries) {
@@ -6822,10 +6877,13 @@ ${this.buildTimelineHtml(group.key)}`;
                 if (!ct) continue;
                 const deviceName = e.prefix.split('_').pop();
                 if (SENSOR_DEVICE_RE.test(deviceName)) continue;
+                const hasTags = { OP: ct.has('OP'), CMD: ct.has('CMD'), V: ct.has('V'), V1: ct.has('V1'), V0: ct.has('V0'), FAULT: ct.has('FAULT') };
                 if (ct.has('OPM') && ct.has('M')) {
-                    controls.push({ type: 'valve', selectKey: '003select', poid: e.poid, pageid: e.pageid, prefix: e.prefix, label: e.label, faultDesc: faultDescMap[e.prefix] || '' });
+                    controls.push({ type: 'valve', selectKey: '003select', poid: e.poid, pageid: e.pageid, prefix: e.prefix, label: e.label, faultDesc: faultDescMap[e.prefix] || '', has: hasTags });
                 } else if (ct.has('MCMD') && ct.has('M')) {
-                    controls.push({ type: 'pump',  selectKey: '010select', poid: e.poid, pageid: e.pageid, prefix: e.prefix, label: e.label, faultDesc: faultDescMap[e.prefix] || '' });
+                    controls.push({ type: 'pump',  selectKey: '010select', poid: e.poid, pageid: e.pageid, prefix: e.prefix, label: e.label, faultDesc: faultDescMap[e.prefix] || '', has: hasTags });
+                } else if (hasTags.OP || hasTags.V || hasTags.CMD || hasTags.V1 || hasTags.V0) {
+                    controls.push({ type: 'status', poid: e.poid, pageid: e.pageid, prefix: e.prefix, label: e.label, faultDesc: faultDescMap[e.prefix] || '', has: hasTags });
                 }
             }
 
